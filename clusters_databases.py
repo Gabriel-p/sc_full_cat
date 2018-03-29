@@ -6,7 +6,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.colorbar import Colorbar 
+from matplotlib.colorbar import Colorbar
 import numpy as np
 
 

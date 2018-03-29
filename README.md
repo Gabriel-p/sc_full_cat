@@ -7,7 +7,7 @@ Currently using:
 * [WEBDA][1] - Web version of the database known as BDA
 * [MWSC][2] - Milky Way Star Clusters Catalog
 * [OPENCLUST][3] - New Optically Visible Open Clusters and Candidates Catalog
-* [Camargo et al. (2010-2013)][3]
+* [Camargo et al. (2010-2013)][4]
 
 [1]: http://www.univie.ac.at/webda/
 [2]: https://heasarc.gsfc.nasa.gov/W3Browse/all/mwsc.html
