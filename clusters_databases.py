@@ -3,6 +3,7 @@ import warnings
 from astropy.io import ascii
 from astropy import units as u
 # from astropy.coordinates.distances import Distance
+from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -10,27 +11,42 @@ from matplotlib.colorbar import Colorbar
 import numpy as np
 
 
-def main():
+def main(max_sep=600., plotFlag=True):
     """
     Example plots:
 
     * http://www.astropy.org/astropy-tutorials/plot-catalog.html
     * http://docs.astropy.org/en/stable/coordinates/skycoord.html
-    * http://docs.astropy.org/en/stable/visualization/wcsaxes/overlaying_coordinate_systems.html
+    * http://docs.astropy.org/en/stable/visualization/wcsaxes/
+      overlaying_coordinate_systems.html
     * http://docs.astropy.org/en/stable/visualization/wcsaxes/
     * http://adass.org/adass/proceedings/adass94/greisene.html
 
     """
 
     # Read databases.
+    print("Read all databases.")
     allData = readData()
 
     # Cross-match all databases.
-    # crossMdata = crossMatch(allData)
+    print("Perform cross-match (max_sep={}).".format(max_sep))
+    crossMdata = crossMatch(allData, max_sep)
+    write2File(allData, crossMdata)
 
-    for name, data in allData.items():
-        print(name)
-        makePlot(name, data)
+    if plotFlag:
+        # Plot each catalog separately.
+        for name, data in allData.items():
+            print(name)
+            makePlot(name, data)
+
+        print('Plot Cross-matched data.')
+        makePlot('Crossmatch', crossMdata)
+
+        # Cross-match with no MWSC database.
+        del allData['MWSC']
+        crossMdata = crossMatch(allData, max_sep)
+        print('Plot CrossM (no MWSC) data.')
+        makePlot('CrossM (no MWSC)', crossMdata)
 
 
 def readData():
@@ -87,8 +103,10 @@ def readData():
 
     # WEBDA - http://www.univie.ac.at/webda/
     #
-    # Manual edits: downloaded from the parameters form.
+    # Manual edits: downloaded from the parameters form, removed a line
+    # 'Back to WEBDA home page'
     webda = ascii.read('input/WEBDA.dat')
+    webda['Cluster_name'].name = 'name'
     webda['RA_2000'].name = 'ra'
     webda['Dec_2000'].name = 'dec'
     webda['Age'].name = 'log_age'
@@ -102,46 +120,223 @@ def readData():
             'WEBDA': webda}
 
 
-def dist2plane(data):
+def dist2plane(data, eq2rad=True):
     """
-    Convert coordinates and obtain vertical distance to plane.
+    Convert equatorial coordinates (if flag is True), and obtain the
+    Cartesian coordinates with 'z_pc' the vertical distance.
     """
-    eq = SkyCoord(
-        ra=data['ra'], dec=data['dec'], unit=(u.hour, u.deg), frame='icrs')
-    data['ra'] = eq.ra.radian
-    data['dec'] = eq.dec.radian
+    if eq2rad:
+        eq = SkyCoord(
+            ra=data['ra'], dec=data['dec'], unit=(u.hour, u.deg), frame='icrs')
+        data['ra'] = eq.ra.radian
+        data['dec'] = eq.dec.radian
+    else:
+        eq = SkyCoord(
+            ra=data['ra'] * u.radian, dec=data['dec'] * u.radian, frame='icrs')
+
     lb = eq.transform_to('galactic')
     data['lon'] = lb.l.wrap_at(180 * u.deg).radian
     data['lat'] = lb.b.radian
 
-    # Vertical distance to plane
-    # d_pc = np.array(data['dist_pc'].filled(-999))
-    # mask = d_pc < 0
-    # d_pc[mask] = np.nan
     try:
-        d_pc = data['dist_pc'].filled(np.nan)
+        data['dist_pc'] = data['dist_pc'].filled(np.nan)
     except AttributeError:
-        d_pc = data['dist_pc']
-    # z_pc = d_pc * np.sin(np.deg2rad(lb.b))
-    # data['z_pc'] = z_pc
+        pass
+
+    # Cartesian coordinates.
     coords = SkyCoord(
-        l=data['lon']*u.radian, b=data['lat']*u.radian, distance=d_pc*u.pc,
-        frame='galactic')
+        l=data['lon'] * u.radian, b=data['lat'] * u.radian,
+        distance=data['dist_pc'] * u.pc, frame='galactic')
     data['x_pc'], data['y_pc'], data['z_pc'] = coords.cartesian.x,\
         coords.cartesian.y, coords.cartesian.z
-
-    # coords = SkyCoord(
-    #     ra=data['ra']*u.radian, dec=data['dec']*u.radian, distance=d_pc*u.pc)
-    # ax, ay, az = coords.cartesian.x, coords.cartesian.y, coords.cartesian.z
 
     return data
 
 
-def crossMatch():
+def crossMatch(allData, max_sep=5.):
     """
+    Cross-match all the databases in 'allData', using the 'max_sep' value
+    as the limiting match radius in arcsec.
     """
 
+    # Initial Table with proper format and a single dummy entry.
+    crossMdata = Table(
+        [['NaN'], [-np.pi / 2.], [-np.pi / 2.], [np.nan]],
+        names=('name', 'ra', 'dec', 'dist_pc'))
+
+    procDatabases = []
+    for data_name, data in allData.items():
+
+        idx2_unq, d2d_unq, idx2_ncm = unqCrossMatch(crossMdata, data)
+
+        n_m, ra_m, dec_m, s_dist_m = [], [], [], []
+        idx1_ncm, idx1_m, idx2_m = [], [], []
+        # For each element in crossMdata
+        for i1, i2 in enumerate(idx2_unq):
+
+            # No match found for this 'crossMdata' element.
+            if np.isnan(i2):
+                idx1_ncm.append(i1)
+            else:
+                # Found match
+                if d2d_unq[i1] < max_sep * u.arcsec:
+                    # Store all names.
+                    n_m.append(
+                        crossMdata['name'][i1] + ', ' + data['name'][i2])
+                    # Store averaged (ra, dec) values.
+                    ra_m.append(np.mean([
+                        crossMdata['ra'][i1], data['ra'][i2]]))
+                    dec_m.append(np.mean([
+                        crossMdata['dec'][i1], data['dec'][i2]]))
+                    # Sum distances.
+                    s_dist_m.append(
+                        nansumwrapper([
+                            crossMdata['dist_pc'][i1], data['dist_pc'][i2]]))
+                    idx1_m.append(i1)
+                    idx2_m.append(i2)
+                else:
+                    # Rejected match, 'max_sep' criteria.
+                    idx1_ncm.append(i1)
+                    idx2_ncm.append(i2)
+
+        n_nm, ra_nm, dec_nm, dist_nm, idx_nm = [], [], [], [], []
+        for i1 in idx1_ncm:
+            n_nm.append(crossMdata['name'][i1])
+            ra_nm.append(crossMdata['ra'][i1])
+            dec_nm.append(crossMdata['dec'][i1])
+            dist_nm.append(crossMdata['dist_pc'][i1])
+            idx_nm.append('--')
+
+        for i2 in idx2_ncm:
+            n_nm.append(data['name'][i2])
+            ra_nm.append(data['ra'][i2])
+            dec_nm.append(data['dec'][i2])
+            dist_nm.append(data['dist_pc'][i2])
+            idx_nm.append(i2)
+
+        # Combine matched and not matched data.
+        n_cmb = Column(n_m + n_nm, name='name')
+        ra_cmb = Column(ra_m + ra_nm, name='ra')
+        dec_cmb = Column(dec_m + dec_nm, name='dec')
+        d_cmb = Column(s_dist_m + dist_nm, name='dist_pc')
+        tempData = Table([n_cmb, ra_cmb, dec_cmb, d_cmb])
+
+        for n in allData.keys():
+            if n == data_name:
+                tempData.add_column(Column(
+                    idx2_m + idx_nm, name=data_name))
+            elif n in procDatabases:
+                tempData.add_column(Column(
+                    list(crossMdata[n][idx1_m]) +
+                    list(crossMdata[n][idx1_ncm]) +
+                    ['--'] * (len(tempData) - len(idx1_m) - len(idx1_ncm)),
+                    name=n))
+            else:
+                tempData.add_column(Column(
+                    ['--'] * len(tempData), name=n))
+
+        # Signal that this database was already processed.
+        procDatabases.append(data_name)
+        # Update final database.
+        crossMdata = tempData
+
+    # Count the number of valid distance values stored for each cross-matched
+    # cluster.
+    N_d = Column([0.] * len(crossMdata))
+    for n in allData.keys():
+        m1 = crossMdata[n] != '--'
+        m2 = crossMdata[n] == '--'
+        N_d[m1] = N_d[m1] + 1.
+        N_d[m2] = N_d[m2]
+    crossMdata['N_d'] = N_d
+    # Replace sum of distances for its mean.
+    crossMdata['dist_pc'] = crossMdata['dist_pc'] / N_d
+
+    # Add Cartesian data.
+    crossMdata = dist2plane(crossMdata, eq2rad=False)
+
+    # Remove dummy 'NaN' entry.
+    crossMdata.add_index('name')
+    nan_idx = crossMdata.loc['NaN'].index
+    crossMdata.remove_row(nan_idx)
+
     return crossMdata
+
+
+def nansumwrapper(a):
+    """
+    Source: https://stackoverflow.com/a/48405633/1391441
+    """
+    if np.isnan(a).all():
+        return np.nan
+    else:
+        return np.nansum(a)
+
+
+def unqCrossMatch(crossMdata, data):
+    """
+    """
+    # Define catalogs to be matched.
+    c1 = SkyCoord(
+        ra=crossMdata['ra'] * u.radian, dec=crossMdata['dec'] * u.radian)
+    c2 = SkyCoord(ra=data['ra'] * u.radian, dec=data['dec'] * u.radian)
+
+    # 'idx' are indices into 'c2' that are the closest objects to each of
+    # the coordinates in 'c1'.
+    idx2, d2d, _ = c1.match_to_catalog_sky(c2)
+
+    idx2_unq, d2d_unq = [], []
+    # Duplicate matches: keep the closest match and replace the other with
+    # a 'nan' value.
+    for j, i2 in enumerate(idx2):
+        # If this match is already stored.
+        if i2 in idx2_unq:
+            # Find the index for this index.
+            i = idx2_unq.index(i2)
+            # If this is a better match then the one stored.
+            if d2d[j] < d2d_unq[i]:
+                # Store 'nan' values in the 'old' position.
+                idx2_unq[i] = np.nan
+                d2d_unq[i] = np.nan
+                # Replace the old index (and distance) with this new one.
+                idx2_unq.append(i2)
+                d2d_unq.append(d2d[j])
+            else:
+                # The index is already stored, but this is not a better
+                # match. Store 'nan' values.
+                idx2_unq.append(np.nan)
+                d2d_unq.append(np.nan)
+        else:
+            # Index not in unique list, store.
+            idx2_unq.append(i2)
+            d2d_unq.append(d2d[j])
+
+    # Indexes in 'data' with no match found.
+    idx2_ncm = [_ for _ in range(len(c2)) if _ not in idx2_unq]
+
+    return idx2_unq, d2d_unq, idx2_ncm
+
+
+def write2File(allData, crossMdata):
+    """
+    Write cross-matched data to file.
+    """
+    # Equatorial to degrees (from radians)
+    eq = SkyCoord(
+        ra=crossMdata['ra'] * u.radian, dec=crossMdata['dec'] * u.radian)
+    crossMdata['ra'] = eq.ra
+    crossMdata['dec'] = eq.dec
+
+    dtBs_names = list(allData.keys())
+    col_order = ['name', 'ra', 'dec'] + dtBs_names +\
+        ['N_d', 'dist_pc', 'lon', 'lat', 'x_pc', 'y_pc', 'z_pc']
+    ascii.write(
+        crossMdata[col_order], 'output/crossMdata.dat', format='fixed_width',
+        formats={'ra': '%12.7f', 'dec': '%12.7f', 'N_d': '%5.0f',
+                 'dist_pc': '%10.2f', 'lon': '%10.4f', 'lat': '%10.4f',
+                 'x_pc': '%10.2f', 'y_pc': '%10.2f', 'z_pc': '%10.2f'},
+        overwrite=True)
+    print("Cross-matched data written to file.")
 
 
 def makePlot(name, data):
@@ -150,8 +345,12 @@ def makePlot(name, data):
                    gridspec_demo.html
     """
 
+    # Ignore colorbar warning
+    warnings.filterwarnings(
+        "ignore", category=UserWarning, module="matplotlib")
     # Ignore RuntimeWarning when creating the masks
     warnings.filterwarnings("ignore", category=RuntimeWarning)
+
     # Vertical distance masks.
     mnan = np.isnan(data['z_pc'])
     m600 = abs(data['z_pc']) <= 600
@@ -166,7 +365,7 @@ def makePlot(name, data):
     gs.update(hspace=0.03, wspace=.3)
 
     ax = plt.subplot(gs[0:3, 0:6], projection="aitoff")
-    plt.title('Database: {}'.format(name))
+    plt.title('Database: {} (N={})'.format(name, len(data)), y=1.02)
     ax.set_xticklabels([
         r'210$^{\circ}$', r'240$^{\circ}$', r'270$^{\circ}$', r'300$^{\circ}$',
         r'330$^{\circ}$', r'0$^{\circ}$', r'30$^{\circ}$', r'60$^{\circ}$',
@@ -228,6 +427,11 @@ def makePlot(name, data):
             xy_arm = np.array(list(zip(*vals)))
             if sp_name == 'Orion-Cygnus':
                 plt.plot(xy_arm[0], xy_arm[1], c='k', label=sp_name)
+            elif sp_name == 'Carina-Sagittarius':
+                plt.plot(xy_arm[0], xy_arm[1], c='b', ls='--', label=sp_name)
+            elif sp_name == 'Crux-Scutum':
+                plt.plot(
+                    xy_arm[0], xy_arm[1], c='purple', ls='--', label=sp_name)
             else:
                 plt.plot(xy_arm[0], xy_arm[1], ls='--', label=sp_name)
     plt.xlim(max(xmin, -20.), min(xmax, 20.))
