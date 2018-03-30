@@ -390,10 +390,8 @@ def makePlot(name, data):
             if i == 4:
                 for _, (lon, lat) in enumerate(
                         zip(*[data['lon'][minf], data['lat'][minf]])):
-                    ax.annotate(data['name'][minf][_], (lon, lat),
-                                xycoords='data')
-                    # print(data['name'][minf][_], data['lon'][minf][_],
-                    #       data['lat'][minf][_], data['z_pc'][minf][_])
+                    ax.annotate(data['name'][minf][_].split(',')[0],
+                                (lon, lat), xycoords='data')
     plt.legend()
 
     plt.style.use('seaborn-darkgrid')
