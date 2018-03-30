@@ -34,9 +34,9 @@ def main(max_sep=600., plotFlag=True):
     write2File(allData, crossMdata)
 
     if plotFlag:
+        print('Plot each database.')
         # Plot each catalog separately.
         for name, data in allData.items():
-            print(name)
             makePlot(name, data)
 
         print('Plot Cross-matched data.')
