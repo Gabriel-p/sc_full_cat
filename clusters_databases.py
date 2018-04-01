@@ -13,7 +13,7 @@ import numpy as np
 # from difflib import SequenceMatcher
 
 
-def main(max_sep=1800., defFlag=True, plotFlag=True):
+def main(max_sep=1800., defFlag=False, plotFlag=True):
     """
 
     max_sep: match radius in arcseconds.
@@ -534,6 +534,9 @@ def makePlot(name, data, gc_frame):
         ax=cbax, mappable=plt3, orientation='horizontal', ticklocation='top')
     cb.set_label(r"${:.1f} < x_{{GC}}\, [kpc] < {:.1f}$".format(
         min(data['x_pc'].data), max(data['x_pc'].data)), labelpad=10)
+
+    plt.suptitle(r'$[d_{{GC}}={},\;\;z_{{\odot}}={}]$'.format(
+        x_sun, z_sun), x=.52, y=.4, fontsize=14)
 
     fig.tight_layout()
     fig.savefig('output/' + name + '.png', dpi=150, bbox_inches='tight')
