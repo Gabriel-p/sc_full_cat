@@ -5,53 +5,69 @@ from astropy import units as u
 # from astropy.coordinates.distances import Distance
 from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
+import astropy.coordinates as coord
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.colorbar import Colorbar
 import numpy as np
+# from difflib import SequenceMatcher
 
 
-def main(max_sep=600., plotFlag=True):
+def main(max_sep=1800., defFlag=True, plotFlag=True):
     """
-    Example plots:
 
-    * http://www.astropy.org/astropy-tutorials/plot-catalog.html
-    * http://docs.astropy.org/en/stable/coordinates/skycoord.html
-    * http://docs.astropy.org/en/stable/visualization/wcsaxes/
-      overlaying_coordinate_systems.html
-    * http://docs.astropy.org/en/stable/visualization/wcsaxes/
-    * http://adass.org/adass/proceedings/adass94/greisene.html
+    max_sep: match radius in arcseconds.
+    plotDBs: generate plots for each database.
+    plotCM: generate plots for the cross-matched set.
 
     """
+    # Define Galactocentric frame
+    gc_frame = frameGalactocentric(defFlag)
 
     # Read databases.
     print("Read all databases.")
-    allData = readData()
+    allDatabases = readData()
 
     # Cross-match all databases.
     print("Perform cross-match (max_sep={}).".format(max_sep))
-    crossMdata = crossMatch(allData, max_sep)
-    write2File(allData, crossMdata)
+    allData = crossMatch(allDatabases, max_sep)
+
+    # Add Cartesian data.
+    allData = dist2plane(allData, gc_frame)
+
+    # Write output file.
+    write2File(allData)
 
     if plotFlag:
-        print('Plot each database.')
+        print('Plotting...')
         # Plot each catalog separately.
         for name, data in allData.items():
-            makePlot(name, data)
+            print("  {}".format(name))
+            makePlot(name, data, gc_frame)
 
-        print('Plot Cross-matched data.')
-        makePlot('Crossmatch', crossMdata)
 
-        # Cross-match with no MWSC database.
-        del allData['MWSC']
-        crossMdata = crossMatch(allData, max_sep)
-        print('Plot CrossM (no MWSC) data.')
-        makePlot('CrossM (no MWSC)', crossMdata)
+def frameGalactocentric(defFlag=True):
+    """
+    Transform to Galactocentric coordinate
+    http://docs.astropy.org/en/stable/api/
+         astropy.coordinates.Galactocentric.html
+
+    defFlag: use astropy's default values.
+
+    """
+    if defFlag:
+        # Default Galactic Center is 8.3 kpc (Gillessen et al. 2009)
+        return coord.Galactocentric()
+    else:
+        # Sun's distance to galactic center from Camargo et al (2013)
+        # (taken from Bica et al. 2006)
+        return coord.Galactocentric(galcen_distance=7.2 * u.kpc)
 
 
 def readData():
     """
-    Read all databases.
+    Read all databases. Prepare so that all have the required columns with
+    matching names.
     """
 
     # OPENCLUST - New Optically Visible Open Clusters and Candidates Catalog
@@ -65,12 +81,16 @@ def readData():
     openclst['col1'].name = 'name'
     openclst['col2'].name = 'ra'
     openclst['col3'].name = 'dec'
+    # Add units to (ra, dec)
+    eq = SkyCoord(
+        ra=openclst['ra'], dec=openclst['dec'], unit=(u.hour, u.deg),
+        frame='icrs')
+    openclst['ra'] = eq.ra
+    openclst['dec'] = eq.dec
     openclst['col6'].name = 'dist_pc'
     openclst['dist_pc'] = openclst['dist_pc'].astype(float)
     openclst['col8'].name = 'log_age'
     openclst['col18'].name = 'fe_h'
-
-    openclst = dist2plane(openclst)
 
     # MWSC - Milky Way Star Clusters Catalog
     # https://heasarc.gsfc.nasa.gov/W3Browse/all/mwsc.html
@@ -80,8 +100,16 @@ def readData():
     mwsc['distance'].name = 'dist_pc'
     mwsc['dist_pc'] = mwsc['dist_pc'].astype(float)
     mwsc['metallicity'].name = 'fe_h'
+    # Add units to (ra, dec)
+    eq = SkyCoord(
+        ra=mwsc['ra'], dec=mwsc['dec'], unit=(u.hour, u.deg),
+        frame='icrs')
+    mwsc['ra'] = eq.ra
+    mwsc['dec'] = eq.dec
 
-    mwsc = dist2plane(mwsc)
+    # Only use objects classified as ope clusters.
+    op_msk = mwsc['class'] == 'OPEN STAR CLUSTER'
+    mwsc = mwsc[op_msk]
     # m10 = abs(mwsc['z_pc']) > 10000
     # print(mwsc[m10])
 
@@ -93,13 +121,17 @@ def readData():
     camargo['Cluster'].name = 'name'
     camargo['RAJ2000'].name = 'ra'
     camargo['DEJ2000'].name = 'dec'
+    # Add units to (ra, dec)
+    eq = SkyCoord(
+        ra=camargo['ra'], dec=camargo['dec'], unit=(u.hour, u.deg),
+        frame='icrs')
+    camargo['ra'] = eq.ra
+    camargo['dec'] = eq.dec
     camargo['Dist'].name = 'dist_pc'
     camargo['dist_pc'] = camargo['dist_pc'] * 1000.
     camargo['Age'].name = 'log_age'
     camargo['log_age'] = np.log10(camargo['log_age'] * 1000000.)
     camargo['fe_h'] = np.array([np.nan for _ in camargo])
-
-    camargo = dist2plane(camargo)
 
     # WEBDA - http://www.univie.ac.at/webda/
     #
@@ -109,63 +141,38 @@ def readData():
     webda['Cluster_name'].name = 'name'
     webda['RA_2000'].name = 'ra'
     webda['Dec_2000'].name = 'dec'
+    # Add units to (ra, dec)
+    eq = SkyCoord(
+        ra=webda['ra'], dec=webda['dec'], unit=(u.hour, u.deg),
+        frame='icrs')
+    webda['ra'] = eq.ra
+    webda['dec'] = eq.dec
     webda['Age'].name = 'log_age'
     webda['Dist'].name = 'dist_pc'
     webda['dist_pc'] = webda['dist_pc'].astype(float)
     webda['Fe/H'].name = 'fe_h'
 
-    webda = dist2plane(webda)
-
-    return {'Camargo': camargo, 'OPENCLUST': openclst, 'MWSC': mwsc,
-            'WEBDA': webda}
+    return {'WEBDA': webda, 'OPENCLUST': openclst, 'Camargo': camargo,
+            'MWSC': mwsc}
 
 
-def dist2plane(data, eq2rad=True):
+def crossMatch(allDatabases, max_sep):
     """
-    Convert equatorial coordinates (if flag is True), and obtain the
-    Cartesian coordinates with 'z_pc' the vertical distance.
-    """
-    if eq2rad:
-        eq = SkyCoord(
-            ra=data['ra'], dec=data['dec'], unit=(u.hour, u.deg), frame='icrs')
-        data['ra'] = eq.ra.radian
-        data['dec'] = eq.dec.radian
-    else:
-        eq = SkyCoord(
-            ra=data['ra'] * u.radian, dec=data['dec'] * u.radian, frame='icrs')
-
-    lb = eq.transform_to('galactic')
-    data['lon'] = lb.l.wrap_at(180 * u.deg).radian
-    data['lat'] = lb.b.radian
-
-    try:
-        data['dist_pc'] = data['dist_pc'].filled(np.nan)
-    except AttributeError:
-        pass
-
-    # Cartesian coordinates.
-    coords = SkyCoord(
-        l=data['lon'] * u.radian, b=data['lat'] * u.radian,
-        distance=data['dist_pc'] * u.pc, frame='galactic')
-    data['x_pc'], data['y_pc'], data['z_pc'] = coords.cartesian.x,\
-        coords.cartesian.y, coords.cartesian.z
-
-    return data
-
-
-def crossMatch(allData, max_sep=5.):
-    """
-    Cross-match all the databases in 'allData', using the 'max_sep' value
+    Cross-match all the databases in 'allDatabases', using the 'max_sep' value
     as the limiting match radius in arcsec.
     """
 
+    # Ignore Warning converting nan to masked element.
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     # Initial Table with proper format and a single dummy entry.
     crossMdata = Table(
-        [['NaN'], [-np.pi / 2.], [-np.pi / 2.], [np.nan]],
+        [['NaN'], [-179.9] * u.deg, [-89.9] * u.deg, [np.nan]],
         names=('name', 'ra', 'dec', 'dist_pc'))
 
     procDatabases = []
-    for data_name, data in allData.items():
+    for DB_name, data in allDatabases.items():
+        print("  (processing {})".format(DB_name))
 
         idx2_unq, d2d_unq, idx2_ncm = unqCrossMatch(crossMdata, data)
 
@@ -183,6 +190,7 @@ def crossMatch(allData, max_sep=5.):
                     # Store all names.
                     n_m.append(
                         crossMdata['name'][i1] + ', ' + data['name'][i2])
+                        # + ' ({})'.format(DB_name[0]))
                     # Store averaged (ra, dec) values.
                     ra_m.append(np.mean([
                         crossMdata['ra'][i1], data['ra'][i2]]))
@@ -208,7 +216,7 @@ def crossMatch(allData, max_sep=5.):
             idx_nm.append('--')
 
         for i2 in idx2_ncm:
-            n_nm.append(data['name'][i2])
+            n_nm.append(data['name'][i2])  # + ' ({})'.format(DB_name[0]))
             ra_nm.append(data['ra'][i2])
             dec_nm.append(data['dec'][i2])
             dist_nm.append(data['dist_pc'][i2])
@@ -216,15 +224,15 @@ def crossMatch(allData, max_sep=5.):
 
         # Combine matched and not matched data.
         n_cmb = Column(n_m + n_nm, name='name')
-        ra_cmb = Column(ra_m + ra_nm, name='ra')
-        dec_cmb = Column(dec_m + dec_nm, name='dec')
+        ra_cmb = Column(ra_m + ra_nm, name='ra', unit=u.degree)
+        dec_cmb = Column(dec_m + dec_nm, name='dec', unit=u.degree)
         d_cmb = Column(s_dist_m + dist_nm, name='dist_pc')
         tempData = Table([n_cmb, ra_cmb, dec_cmb, d_cmb])
 
-        for n in allData.keys():
-            if n == data_name:
+        for n in allDatabases.keys():
+            if n == DB_name:
                 tempData.add_column(Column(
-                    idx2_m + idx_nm, name=data_name))
+                    idx2_m + idx_nm, name=DB_name))
             elif n in procDatabases:
                 tempData.add_column(Column(
                     list(crossMdata[n][idx1_m]) +
@@ -236,14 +244,14 @@ def crossMatch(allData, max_sep=5.):
                     ['--'] * len(tempData), name=n))
 
         # Signal that this database was already processed.
-        procDatabases.append(data_name)
+        procDatabases.append(DB_name)
         # Update final database.
         crossMdata = tempData
 
     # Count the number of valid distance values stored for each cross-matched
     # cluster.
     N_d = Column([0.] * len(crossMdata))
-    for n in allData.keys():
+    for n in allDatabases.keys():
         m1 = crossMdata[n] != '--'
         m2 = crossMdata[n] == '--'
         N_d[m1] = N_d[m1] + 1.
@@ -252,15 +260,16 @@ def crossMatch(allData, max_sep=5.):
     # Replace sum of distances for its mean.
     crossMdata['dist_pc'] = crossMdata['dist_pc'] / N_d
 
-    # Add Cartesian data.
-    crossMdata = dist2plane(crossMdata, eq2rad=False)
-
     # Remove dummy 'NaN' entry.
     crossMdata.add_index('name')
     nan_idx = crossMdata.loc['NaN'].index
     crossMdata.remove_row(nan_idx)
 
-    return crossMdata
+    # Add cross-matched to all databases.
+    allDatabases['crossMdata'] = crossMdata
+    print("  Databases cross-matched (N={})".format(len(crossMdata)))
+
+    return allDatabases
 
 
 def nansumwrapper(a):
@@ -277,11 +286,10 @@ def unqCrossMatch(crossMdata, data):
     """
     """
     # Define catalogs to be matched.
-    c1 = SkyCoord(
-        ra=crossMdata['ra'] * u.radian, dec=crossMdata['dec'] * u.radian)
-    c2 = SkyCoord(ra=data['ra'] * u.radian, dec=data['dec'] * u.radian)
+    c1 = SkyCoord(ra=crossMdata['ra'], dec=crossMdata['dec'])
+    c2 = SkyCoord(ra=data['ra'], dec=data['dec'])
 
-    # 'idx' are indices into 'c2' that are the closest objects to each of
+    # 'idx2' are indices into 'c2' that are the closest objects to each of
     # the coordinates in 'c1'.
     idx2, d2d, _ = c1.match_to_catalog_sky(c2)
 
@@ -289,11 +297,15 @@ def unqCrossMatch(crossMdata, data):
     # Duplicate matches: keep the closest match and replace the other with
     # a 'nan' value.
     for j, i2 in enumerate(idx2):
+
+        # sim = similar(crossMdata['name'][j], data['name'][i2])
+        # print(crossMdata['name'][j], data['name'][i2], sim)
+
         # If this match is already stored.
         if i2 in idx2_unq:
             # Find the index for this index.
             i = idx2_unq.index(i2)
-            # If this is a better match then the one stored.
+            # If this is a better match than the one stored.
             if d2d[j] < d2d_unq[i]:
                 # Store 'nan' values in the 'old' position.
                 idx2_unq[i] = np.nan
@@ -317,29 +329,74 @@ def unqCrossMatch(crossMdata, data):
     return idx2_unq, d2d_unq, idx2_ncm
 
 
-def write2File(allData, crossMdata):
+# def similar(a, b):
+#     return 1. - SequenceMatcher(None, a, b).ratio()
+
+
+def dist2plane(allData, gc_frame):
+    """
+    Convert equatorial coordinates, and obtain the
+    Cartesian coordinates with 'z_pc' the vertical distance.
+    """
+    for data in allData.values():
+
+        eq = SkyCoord(ra=data['ra'], dec=data['dec'], frame='icrs')
+        lb = eq.transform_to('galactic')
+        data['lon'] = lb.l.wrap_at(180 * u.deg).radian * u.radian
+        data['lat'] = lb.b.radian * u.radian
+
+        try:
+            data['dist_pc'] = data['dist_pc'].filled(np.nan)
+        except AttributeError:
+            pass
+
+        # Galactic coordinates.
+        coords = SkyCoord(
+            l=data['lon'], b=data['lat'], distance=data['dist_pc'] * u.pc,
+            frame='galactic')
+        # Galactocentric coordinates.
+        c_glct = coords.transform_to(gc_frame)
+        data['x_pc'], data['y_pc'], data['z_pc'] = c_glct.x, c_glct.y, c_glct.z
+
+    return allData
+
+
+def write2File(allData):
     """
     Write cross-matched data to file.
     """
+    crossMdata = allData['crossMdata']
+
     # Equatorial to degrees (from radians)
-    eq = SkyCoord(
-        ra=crossMdata['ra'] * u.radian, dec=crossMdata['dec'] * u.radian)
-    crossMdata['ra'] = eq.ra
-    crossMdata['dec'] = eq.dec
+    eq = SkyCoord(crossMdata['ra'], crossMdata['dec'])
+    crossMdata['ra_h'] = eq.ra.to_string(unit=u.hour)
+    crossMdata['dec_d'] = eq.dec.to_string(unit=u.degree)
+    # Galactic to degrees (from radians)
+    gl = SkyCoord(l=crossMdata['lon'], b=crossMdata['lat'], frame='galactic')
+    crossMdata['lon_d'] = gl.l.wrap_at(360 * u.deg)
+    crossMdata['lat_d'] = gl.b
+
+    # Order by 'ra' (if I attempt to order tha table as is, a ValueError
+    # is raised)
+    bb = Table([[_ for _ in range(len(crossMdata))], crossMdata['ra']])
+    bb.sort('ra')
+    mask = bb['col0'].data
+    crossMdata = crossMdata[mask]
 
     dtBs_names = list(allData.keys())
-    col_order = ['name', 'ra', 'dec'] + dtBs_names +\
-        ['N_d', 'dist_pc', 'lon', 'lat', 'x_pc', 'y_pc', 'z_pc']
+    dtBs_names.remove('crossMdata')
+    col_order = ['name', 'ra_h', 'dec_d'] + dtBs_names +\
+        ['N_d', 'dist_pc', 'lon_d', 'lat_d', 'x_pc', 'y_pc', 'z_pc']
     ascii.write(
         crossMdata[col_order], 'output/crossMdata.dat', format='fixed_width',
-        formats={'ra': '%12.7f', 'dec': '%12.7f', 'N_d': '%5.0f',
-                 'dist_pc': '%10.2f', 'lon': '%10.4f', 'lat': '%10.4f',
+        formats={'N_d': '%5.0f',
+                 'dist_pc': '%10.2f', 'lon_d': '%10.4f', 'lat_d': '%10.4f',
                  'x_pc': '%10.2f', 'y_pc': '%10.2f', 'z_pc': '%10.2f'},
         overwrite=True)
     print("Cross-matched data written to file.")
 
 
-def makePlot(name, data):
+def makePlot(name, data, gc_frame):
     """
     Gridspec idea: http://www.sc.eso.org/~bdias/pycoffee/codes/20160407/
                    gridspec_demo.html
@@ -384,14 +441,17 @@ def makePlot(name, data):
         if sum(m) > 0:
             ms, a, c, lab = plt_data[str(i)]
             ax.plot(
-                data['lon'][m], data['lat'][m], 'o', markersize=ms, alpha=a,
-                color=c, label=lab.format(len(data['lon'][m])))
-            # Only plot cluster names for those with the largest 'z' values.
-            if i == 4:
+                data['lon'][m] * u.radian, data['lat'][m] * u.radian, 'o',
+                markersize=ms, alpha=a, color=c,
+                label=lab.format(len(data['lon'][m])))
+            # Only plot names for those with the two largest 'z' values.
+            fs = [6, 10]
+            if i in [3, 4]:
                 for _, (lon, lat) in enumerate(
-                        zip(*[data['lon'][minf], data['lat'][minf]])):
-                    ax.annotate(data['name'][minf][_].split(',')[0],
-                                (lon, lat), xycoords='data')
+                        zip(*[data['lon'][m], data['lat'][m]])):
+                    ax.annotate(data['name'][m][_].split(',')[0],
+                                (lon, lat), xycoords='data',
+                                fontsize=fs[i - 3])
     plt.legend()
 
     plt.style.use('seaborn-darkgrid')
@@ -400,24 +460,22 @@ def makePlot(name, data):
     data['y_pc'].convert_unit_to('kpc')
     data['z_pc'].convert_unit_to('kpc')
 
-    # Sun's distance to galactic center from Camargo et al (2013) (taken from
-    # Bica et al. 2006)
-    R_0 = 7.2 * u.kpc
-    # Move Galactic center to the origin of the system.
-    x_gc = data['x_pc'] - R_0
-    # Sun's coords
-    s_xys = SkyCoord(-R_0, 0., 0., unit='kpc', representation_type='cartesian')
+    # Sun's coords according to the Galactocentric frame.
+    x_sun, z_sun = gc_frame.galcen_distance, gc_frame.z_sun
+    s_xys = SkyCoord(
+        -x_sun, 0., z_sun, unit='kpc', representation_type='cartesian')
 
     ax = plt.subplot(gs[4:6, 0:2])
     plt.xlabel(r"$x_{GC}\, [kpc]$")
     plt.ylabel(r"$y_{GC}\, [kpc]$")
     vmin, vmax = max(min(data['z_pc']), -2.5), min(max(data['z_pc']), 2.5)
     plt1 = plt.scatter(
-        x_gc, data['y_pc'].data, alpha=.5, c=data['z_pc'], cmap='viridis',
-        vmin=vmin, vmax=vmax)
+        data['x_pc'], data['y_pc'].data, alpha=.5, c=data['z_pc'],
+        cmap='viridis', vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.x, s_xys.y, c='yellow', s=50, edgecolor='k')
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
+    plt.scatter(0., 0., c='k', marker='x', s=70)
     # Plot spiral arms
     spiral_arms = spiralArms()
     for sp_name, vals in spiral_arms.items():
@@ -447,9 +505,10 @@ def makePlot(name, data):
     plt.ylabel(r"$z_{GC}\, [kpc]$")
     vmin, vmax = max(ymin, -15.), min(ymax, 15.)
     plt2 = plt.scatter(
-        x_gc, data['z_pc'], alpha=.5, c=data['y_pc'], cmap='viridis',
+        data['x_pc'], data['z_pc'], alpha=.5, c=data['y_pc'], cmap='viridis',
         vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.x, s_xys.z, c='yellow', s=50, edgecolor='k')
+    plt.scatter(0., 0., c='k', marker='x', s=70)
     plt.xlim(max(xmin, -20.), min(xmax, 20.))
     plt.ylim(max(min(data['z_pc']), -3.), min(max(data['z_pc']), 3.))
     # colorbar
@@ -464,7 +523,7 @@ def makePlot(name, data):
     plt.ylabel(r"$z_{GC}\, [kpc]$")
     vmin, vmax = max(xmin, -20.), min(xmax, 20.)
     plt3 = plt.scatter(
-        data['y_pc'], data['z_pc'], alpha=.5, c=x_gc, cmap='viridis',
+        data['y_pc'], data['z_pc'], alpha=.5, c=data['x_pc'], cmap='viridis',
         vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.y, s_xys.z, c='yellow', s=50, edgecolor='k')
     plt.xlim(max(ymin, -15.), min(ymax, 15.))
@@ -474,7 +533,7 @@ def makePlot(name, data):
     cb = Colorbar(
         ax=cbax, mappable=plt3, orientation='horizontal', ticklocation='top')
     cb.set_label(r"${:.1f} < x_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(x_gc.data), max(x_gc.data)), labelpad=10)
+        min(data['x_pc'].data), max(data['x_pc'].data)), labelpad=10)
 
     fig.tight_layout()
     fig.savefig('output/' + name + '.png', dpi=150, bbox_inches='tight')
