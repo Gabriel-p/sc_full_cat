@@ -410,9 +410,11 @@ def makePlot(name, data, gc_frame):
 
     # Vertical distance masks.
     mnan = np.isnan(data['z_pc'])
-    m600 = abs(data['z_pc']) <= 600
+    m200 = abs(data['z_pc']) <= 200
+    m600 = (200 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 600)
     m1000 = (600 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1000)
-    m2500 = (1000 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 2500)
+    m1500 = (1000 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1500)
+    m2500 = (1500 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 2500)
     minf = abs(data['z_pc']) > 2500
 
     fig = plt.figure(figsize=(25, 25))
@@ -430,29 +432,43 @@ def makePlot(name, data, gc_frame):
     ax.grid(True)
 
     plt_data = {
-        '0': [3., .3, 'red', r'$No\,dist\; (N={})$'],
-        '1': [4., .3, 'grey', r'$z\leq 600\,[pc]\; (N={})$'],
-        '2': [4., .3, 'orange', r'$600<z\leq1000\,[pc]\;(N={})$'],
-        '3': [6., .4, 'blue', r'$1000<z\leq2500\,[pc]\;(N={})$'],
-        '4': [8., .5, 'green', r'$z>2500\,[pc]\;(N={})$']
+        '0': [3., .5, 'x', 'k', r'$No\,dist\; (N={})$'],
+        '1': [3., .3, 'o', 'grey', r'$z\leq 200\,[pc]\; (N={})$'],
+        '2': [4., .3, 'o', 'red', r'$200<z\leq600\,[pc]\;(N={})$'],
+        '3': [4., .3, 'o', 'orange', r'$600<z\leq1000\,[pc]\;(N={})$'],
+        '4': [6., .4, 'o', 'green', r'$1000<z\leq1500\,[pc]\;(N={})$'],
+        '5': [8., .5, 'o', 'cyan', r'$1500<z\leq2500\,[pc]\;(N={})$'],
+        '6': [10., .6, 'o', 'blue', r'$z>2500\,[pc]\;(N={})$']
     }
-    for i, m in enumerate([mnan, m600, m1000, m2500, minf]):
+    cl_plots1, cl_plots2 = [[], []], [[], []]
+    for i, m in enumerate([mnan, m200, m600, m1000, m1500, m2500, minf]):
         # Only plot if there are objects to plot.
         if sum(m) > 0:
-            ms, a, c, lab = plt_data[str(i)]
-            ax.plot(
+            ms, a, mrk, c, lab = plt_data[str(i)]
+            pl, = ax.plot(
                 data['lon'][m] * u.radian, data['lat'][m] * u.radian, 'o',
-                markersize=ms, alpha=a, color=c,
+                marker=mrk, markersize=ms, alpha=a, color=c,
                 label=lab.format(len(data['lon'][m])))
+
+            if i in [0, 1, 2, 3]:
+                cl_plots1[0].append(pl)
+                cl_plots1[1].append(lab.format(len(data['lon'][m])))
+            else:
+                cl_plots2[0].append(pl)
+                cl_plots2[1].append(lab.format(len(data['lon'][m])))
+
             # Only plot names for those with the two largest 'z' values.
-            fs = [6, 10]
-            if i in [3, 4]:
+            fs = [6, 8, 10]
+            if i in [4, 5, 6]:
                 for _, (lon, lat) in enumerate(
                         zip(*[data['lon'][m], data['lat'][m]])):
                     ax.annotate(data['name'][m][_].split(',')[0],
                                 (lon, lat), xycoords='data',
-                                fontsize=fs[i - 3])
-    plt.legend()
+                                fontsize=fs[i - 4])
+
+    l1 = plt.legend(cl_plots1[0], cl_plots1[1], loc=1)
+    plt.legend(cl_plots2[0], cl_plots2[1], loc=4)
+    plt.gca().add_artist(l1)
 
     plt.style.use('seaborn-darkgrid')
 
