@@ -377,7 +377,7 @@ def write2File(allData):
     crossMdata['lat_d'] = gl.b
 
     # Order by 'ra' (if I attempt to order tha table as is, a ValueError
-    # is raised)
+    # is raised) TODO
     bb = Table([[_ for _ in range(len(crossMdata))], crossMdata['ra']])
     bb.sort('ra')
     mask = bb['col0'].data
