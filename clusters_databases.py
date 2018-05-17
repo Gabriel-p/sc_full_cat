@@ -13,12 +13,13 @@ import numpy as np
 # from difflib import SequenceMatcher
 
 
-def main(max_sep=1800., defFlag=False, plotFlag=True):
+def main(max_sep=1800., defFlag=False, plotFlag=True, db_read='all'):
     """
 
     max_sep: match radius in arcseconds.
     plotDBs: generate plots for each database.
     plotCM: generate plots for the cross-matched set.
+    db_read: select 'all' or a single database to read in.
 
     """
     # Define Galactocentric frame
@@ -26,7 +27,7 @@ def main(max_sep=1800., defFlag=False, plotFlag=True):
 
     # Read databases.
     print("Read all databases.")
-    allDatabases = readData()
+    allDatabases = readData(db_read)
 
     # Cross-match all databases.
     print("Perform cross-match (max_sep={}).".format(max_sep))
@@ -64,96 +65,134 @@ def frameGalactocentric(defFlag=True):
         return coord.Galactocentric(galcen_distance=7.2 * u.kpc)
 
 
-def readData():
+def readData(db_read):
     """
     Read all databases. Prepare so that all have the required columns with
     matching names.
     """
+    def oc_read():
+        # OPENCLUST - New Optically Visible Open Clusters and Candidates
+        # Catalog
+        # https://heasarc.gsfc.nasa.gov/W3Browse/all/openclust.html
+        # Table with proper format from:
+        # http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/txt?B/ocl
+        #
+        # Manual edits: Commented the header, added a column separator between
+        # ra and dec.
+        openclst = ascii.read('input/OPENCLUST.dat')
+        openclst['col1'].name = 'name'
+        openclst['col2'].name = 'ra'
+        openclst['col3'].name = 'dec'
+        # Add units to (ra, dec)
+        eq = SkyCoord(
+            ra=openclst['ra'], dec=openclst['dec'], unit=(u.hour, u.deg),
+            frame='icrs')
+        openclst['ra'] = eq.ra
+        openclst['dec'] = eq.dec
+        openclst['col6'].name = 'dist_pc'
+        openclst['dist_pc'] = openclst['dist_pc'].astype(float)
+        openclst['col8'].name = 'log_age'
+        openclst['col18'].name = 'fe_h'
+        openclst['col13'].name = 'N_m'
 
-    # OPENCLUST - New Optically Visible Open Clusters and Candidates Catalog
-    # https://heasarc.gsfc.nasa.gov/W3Browse/all/openclust.html
-    # Table with proper format from:
-    # http://cdsarc.u-strasbg.fr/viz-bin/nph-Cat/txt?B/ocl
-    #
-    # Manual edits: Commented the header, added a column separator between
-    # ra and dec.
-    openclst = ascii.read('input/OPENCLUST.dat')
-    openclst['col1'].name = 'name'
-    openclst['col2'].name = 'ra'
-    openclst['col3'].name = 'dec'
-    # Add units to (ra, dec)
-    eq = SkyCoord(
-        ra=openclst['ra'], dec=openclst['dec'], unit=(u.hour, u.deg),
-        frame='icrs')
-    openclst['ra'] = eq.ra
-    openclst['dec'] = eq.dec
-    openclst['col6'].name = 'dist_pc'
-    openclst['dist_pc'] = openclst['dist_pc'].astype(float)
-    openclst['col8'].name = 'log_age'
-    openclst['col18'].name = 'fe_h'
+        return openclst
 
-    # MWSC - Milky Way Star Clusters Catalog
-    # https://heasarc.gsfc.nasa.gov/W3Browse/all/mwsc.html
-    #
-    # Manual edits: removed initial '|' chars.
-    mwsc = ascii.read('input/MWSC.dat', format='fixed_width')
-    mwsc['distance'].name = 'dist_pc'
-    mwsc['dist_pc'] = mwsc['dist_pc'].astype(float)
-    mwsc['metallicity'].name = 'fe_h'
-    # Add units to (ra, dec)
-    eq = SkyCoord(
-        ra=mwsc['ra'], dec=mwsc['dec'], unit=(u.hour, u.deg),
-        frame='icrs')
-    mwsc['ra'] = eq.ra
-    mwsc['dec'] = eq.dec
+    def mwsc_read():
+        # MWSC - Milky Way Star Clusters Catalog
+        # https://heasarc.gsfc.nasa.gov/W3Browse/all/mwsc.html
+        #
+        # Manual edits: removed initial '|' chars.
+        mwsc = ascii.read('input/MWSC.dat', format='fixed_width')
+        mwsc['distance'].name = 'dist_pc'
+        mwsc['dist_pc'] = mwsc['dist_pc'].astype(float)
+        mwsc['metallicity'].name = 'fe_h'
+        # Add units to (ra, dec)
+        eq = SkyCoord(
+            ra=mwsc['ra'], dec=mwsc['dec'], unit=(u.hour, u.deg),
+            frame='icrs')
+        mwsc['ra'] = eq.ra
+        mwsc['dec'] = eq.dec
 
-    # Only use objects classified as ope clusters.
-    op_msk = mwsc['class'] == 'OPEN STAR CLUSTER'
-    mwsc = mwsc[op_msk]
-    # m10 = abs(mwsc['z_pc']) > 10000
-    # print(mwsc[m10])
+        # Only use objects classified as ope clusters.
+        op_msk = mwsc['class'] == 'OPEN STAR CLUSTER'
+        mwsc = mwsc[op_msk]
+        # m10 = abs(mwsc['z_pc']) > 10000
+        # print(mwsc[m10])
 
-    # Camargo et al (2010-2013); Table 1, 2
-    # http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J%2FMNRAS%2F432%2F3349
-    #
-    # Manual edits: stitched together both tables.
-    camargo = ascii.read('input/Camargo.dat')
-    camargo['Cluster'].name = 'name'
-    camargo['RAJ2000'].name = 'ra'
-    camargo['DEJ2000'].name = 'dec'
-    # Add units to (ra, dec)
-    eq = SkyCoord(
-        ra=camargo['ra'], dec=camargo['dec'], unit=(u.hour, u.deg),
-        frame='icrs')
-    camargo['ra'] = eq.ra
-    camargo['dec'] = eq.dec
-    camargo['Dist'].name = 'dist_pc'
-    camargo['dist_pc'] = camargo['dist_pc'] * 1000.
-    camargo['Age'].name = 'log_age'
-    camargo['log_age'] = np.log10(camargo['log_age'] * 1000000.)
-    camargo['fe_h'] = np.array([np.nan for _ in camargo])
+        return mwsc
 
-    # WEBDA - http://www.univie.ac.at/webda/
-    #
-    # Manual edits: downloaded from the parameters form, removed a line
-    # 'Back to WEBDA home page'
-    webda = ascii.read('input/WEBDA.dat')
-    webda['Cluster_name'].name = 'name'
-    webda['RA_2000'].name = 'ra'
-    webda['Dec_2000'].name = 'dec'
-    # Add units to (ra, dec)
-    eq = SkyCoord(
-        ra=webda['ra'], dec=webda['dec'], unit=(u.hour, u.deg),
-        frame='icrs')
-    webda['ra'] = eq.ra
-    webda['dec'] = eq.dec
-    webda['Age'].name = 'log_age'
-    webda['Dist'].name = 'dist_pc'
-    webda['dist_pc'] = webda['dist_pc'].astype(float)
-    webda['Fe/H'].name = 'fe_h'
+    def camargo_read():
+        # Camargo et al (2010-2013); Table 1, 2
+        # http://vizier.u-strasbg.fr/viz-bin/
+        # VizieR?-source=J%2FMNRAS%2F432%2F3349
+        #
+        # Manual edits: stitched together both tables.
+        camargo = ascii.read('input/Camargo.dat')
+        camargo['Cluster'].name = 'name'
+        camargo['RAJ2000'].name = 'ra'
+        camargo['DEJ2000'].name = 'dec'
+        # Add units to (ra, dec)
+        eq = SkyCoord(
+            ra=camargo['ra'], dec=camargo['dec'], unit=(u.hour, u.deg),
+            frame='icrs')
+        camargo['ra'] = eq.ra
+        camargo['dec'] = eq.dec
+        camargo['Dist'].name = 'dist_pc'
+        camargo['dist_pc'] = camargo['dist_pc'] * 1000.
+        camargo['Age'].name = 'log_age'
+        camargo['log_age'] = np.log10(camargo['log_age'] * 1000000.)
+        camargo['fe_h'] = np.array([np.nan for _ in camargo])
 
-    return {'WEBDA': webda, 'OPENCLUST': openclst, 'Camargo': camargo,
-            'MWSC': mwsc}
+        return camargo
+
+    def webda_read():
+        # WEBDA - http://www.univie.ac.at/webda/
+        #
+        # Manual edits: downloaded from the parameters form, removed a line
+        # 'Back to WEBDA home page'
+        webda = ascii.read('input/WEBDA.dat')
+        webda['Cluster_name'].name = 'name'
+        webda['RA_2000'].name = 'ra'
+        webda['Dec_2000'].name = 'dec'
+        # Add units to (ra, dec)
+        eq = SkyCoord(
+            ra=webda['ra'], dec=webda['dec'], unit=(u.hour, u.deg),
+            frame='icrs')
+        webda['ra'] = eq.ra
+        webda['dec'] = eq.dec
+        webda['Age'].name = 'log_age'
+        webda['Dist'].name = 'dist_pc'
+        webda['dist_pc'] = webda['dist_pc'].astype(float)
+        webda['Fe/H'].name = 'fe_h'
+
+        return webda
+
+    if db_read == 'all':
+        openclst = oc_read()
+        mwsc = mwsc_read()
+        camargo = camargo_read()
+        webda = webda_read()
+
+        db_dict = {'WEBDA': webda, 'OPENCLUST': openclst, 'Camargo': camargo,
+                   'MWSC': mwsc}
+
+    elif db_read == 'openclust':
+        openclst = oc_read()
+        db_dict = {'OPENCLUST': openclst}
+
+    elif db_read == 'mwsc':
+        mwsc = mwsc_read()
+        db_dict = {'MWSC': mwsc}
+
+    elif db_read == 'openclust':
+        camargo = camargo_read()
+        db_dict = {'Camargo': camargo}
+
+    elif db_read == 'openclust':
+        webda = webda_read()
+        db_dict = {'WEBDA': webda}
+
+    return db_dict
 
 
 def crossMatch(allDatabases, max_sep):
