@@ -21,10 +21,12 @@ cat = Pan_STARRS1
 #
 # name = 'GAIA1'
 # center, box_s = (101.47, -16.75), "1deg"
+name = 'GAIA1_ps1'
+center, box_s = (101.47, -16.75), "1deg"
 # name = 'NGC6791'
 # center, box_s = (290.2208333, 37.7716667), "1deg"
-name = 'RUP44_ps1'
-center, box_s = (119.7125, -28.5833), ".1deg"
+# name = 'RUP44_ps1'
+# center, box_s = (119.7125, -28.5833), "1deg"
 
 # Unlimited rows, all columns
 v = Vizier(row_limit=-1, columns=['all'])
@@ -32,4 +34,4 @@ result = v.query_region(coord.SkyCoord(
     ra=center[0], dec=center[1], unit=(u.deg, u.deg), frame='icrs'),
     width=box_s, catalog=[cat])
 
-ascii.write(result[cat], 'input/' + name + ".dat")
+ascii.write(result[cat], 'input_expl/' + name + ".dat", overwrite=True)

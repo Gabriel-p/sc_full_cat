@@ -36,6 +36,7 @@
    * Orbital analysis using 'galpy' + 'MWPotential2014'
    * Forward 1 Gyr --> z_max~1.1 Kpc (+0.4, -0.3 Kpc)
    * 30 plane crossings (9 per Gyr)
+   * "surprising to find Gaia 1 in its present orbit at the present day"
 
 
 3. Mucciarelli et al. (2017)
@@ -44,7 +45,7 @@
    * Rejects possible extra-galactic origin, favors a Galactic open cluster
    * Atmospheric parameters from Simpson et al. (2017) are wrong
    * "Unremarkable standard Galactic open cluster"
-   * Uncertainty in the orbit --> wait for Gaia DR2
+   * Poor proper motions --> Uncertainty in the orbit --> wait for Gaia DR2
 
 
 4. Koch et al. (2017)
