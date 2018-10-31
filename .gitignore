@@ -101,5 +101,6 @@ ENV/
 .mypy_cache/
 
 *.png
+!/crossMdata.png
 input_expl/*.dat
 
