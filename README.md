@@ -1,6 +1,4 @@
-# sc_full_cat
-
-Cross-matched catalogs of stellar clusters.
+## Cross-matched catalogs of stellar clusters
 
 Currently using:
 
