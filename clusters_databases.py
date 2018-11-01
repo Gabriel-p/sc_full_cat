@@ -1,5 +1,4 @@
 
-
 import os
 import warnings
 from astropy.io import ascii
@@ -486,22 +485,21 @@ def makePlot(name, data, gc_frame):
     ax.grid(True)
 
     plt_data = {
-        '0': [3., .5, 'x', 'k', r'$No\,dist\; (N={})$'],
-        '1': [3., .3, 'o', 'grey', r'$z\leq 200\,[pc]\; (N={})$'],
-        '2': [4., .3, 'o', 'red', r'$200<z\leq600\,[pc]\;(N={})$'],
-        '3': [4., .3, 'o', 'orange', r'$600<z\leq1000\,[pc]\;(N={})$'],
-        '4': [6., .4, 'o', 'green', r'$1000<z\leq1500\,[pc]\;(N={})$'],
-        '5': [8., .5, 'o', 'cyan', r'$1500<z\leq2500\,[pc]\;(N={})$'],
-        '6': [10., .6, 'o', 'blue', r'$z>2500\,[pc]\;(N={})$']
+        '0': [15, .5, 'x', 'k', r'$No\,dist\; (N={})$'],
+        '1': [15., .3, 'o', 'grey', r'$z\leq 200\,[pc]\; (N={})$'],
+        '2': [20., .3, 'o', 'red', r'$200<z\leq600\,[pc]\;(N={})$'],
+        '3': [20., .3, 'o', 'orange', r'$600<z\leq1000\,[pc]\;(N={})$'],
+        '4': [25., .4, 'o', 'green', r'$1000<z\leq1500\,[pc]\;(N={})$'],
+        '5': [50., .5, 'o', 'cyan', r'$1500<z\leq2500\,[pc]\;(N={})$'],
+        '6': [70., .6, 'o', 'blue', r'$z>2500\,[pc]\;(N={})$']
     }
     cl_plots1, cl_plots2 = [[], []], [[], []]
     for i, m in enumerate([mnan, m200, m600, m1000, m1500, m2500, minf]):
         # Only plot if there are objects to plot.
         if sum(m) > 0:
             ms, a, mrk, c, lab = plt_data[str(i)]
-            pl, = ax.plot(
-                data['lon'][m] * u.radian, data['lat'][m] * u.radian, 'o',
-                marker=mrk, markersize=ms, alpha=a, color=c,
+            pl = ax.scatter(
+                data['lon'][m], data['lat'][m], marker=mrk, s=ms, alpha=a, c=c,
                 label=lab.format(len(data['lon'][m])))
 
             if i in [0, 1, 2, 3]:
