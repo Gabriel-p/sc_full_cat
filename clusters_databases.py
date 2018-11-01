@@ -1,4 +1,6 @@
 
+
+import os
 import warnings
 from astropy.io import ascii
 from astropy import units as u
@@ -17,27 +19,32 @@ def main(max_sep=1800., defFlag=False, plotFlag=True, db_read='all'):
     """
 
     max_sep: match radius in arcseconds.
-    plotDBs: generate plots for each database.
-    plotCM: generate plots for the cross-matched set.
-    db_read: select 'all' or a single database to read in.
+    defFlag: use astropy's default values for the Galactic frame.
+    plotFlag: generate plots for the cross-matched set.
+    db_read: select all or a single database to read in.
+            (all, openclust, mwsc, camargo, webda)
 
     """
     # Define Galactocentric frame
     gc_frame = frameGalactocentric(defFlag)
 
     # Read databases.
-    print("Read all databases.")
+    print("Read databases.")
     allDatabases = readData(db_read)
 
     # Cross-match all databases.
-    print("Perform cross-match (max_sep={}).".format(max_sep))
-    allData = crossMatch(allDatabases, max_sep)
+    if db_read == 'all':
+        print("Perform cross-match (max_sep={}).".format(max_sep))
+        allData = crossMatch(allDatabases, max_sep)
+    else:
+        allData = allDatabases
 
     # Add Cartesian data.
     allData = dist2plane(allData, gc_frame)
 
-    # Write output file.
-    write2File(allData)
+    if db_read == 'all':
+        # Write output file.
+        write2File(allData)
 
     if plotFlag:
         print('Plotting...')
@@ -168,9 +175,13 @@ def readData(db_read):
         return webda
 
     if db_read == 'all':
+        print("  OPENCLUST")
         openclst = oc_read()
+        print("  MWSC")
         mwsc = mwsc_read()
+        print("  Camargo")
         camargo = camargo_read()
+        print("  WEBDA")
         webda = webda_read()
 
         db_dict = {'WEBDA': webda, 'OPENCLUST': openclst, 'Camargo': camargo,
@@ -184,11 +195,11 @@ def readData(db_read):
         mwsc = mwsc_read()
         db_dict = {'MWSC': mwsc}
 
-    elif db_read == 'openclust':
+    elif db_read == 'camargo':
         camargo = camargo_read()
         db_dict = {'Camargo': camargo}
 
-    elif db_read == 'openclust':
+    elif db_read == 'webda':
         webda = webda_read()
         db_dict = {'WEBDA': webda}
 
@@ -402,8 +413,12 @@ def dist2plane(allData, gc_frame):
 
 def write2File(allData):
     """
-    Write cross-matched data to file.
+    Write cross-matched data to 'crossMdata.dat' file.
     """
+    # Create /output dir if it does not exist.
+    if not os.path.exists('output/'):
+        os.makedirs('output/')
+
     crossMdata = allData['crossMdata']
 
     # Equatorial to degrees (from radians)

@@ -15,19 +15,20 @@ from clusters_databases import readData
 from clusters_databases import dist2plane
 
 
-def main(defFlag=True):
+def main(defFlag=True, database='openclust'):
     """
+    Helper script. Shows statistics of z (vertical distance) values for a
+    given database.
 
-    max_sep: match radius in arcseconds.
-    plotDBs: generate plots for each database.
-    plotCM: generate plots for the cross-matched set.
+    defFlag: use astropy's default values for the Galactic frame.
+    database: select database to plot (openclust, mwsc, camargo, webda)
 
     """
     # Define Galactocentric frame
     gc_frame = frameGalactocentric(defFlag)
 
     # Read databases.
-    allData = readData('openclust')
+    allData = readData(database)
 
     # Add Cartesian data.
     allData = dist2plane(allData, gc_frame)
