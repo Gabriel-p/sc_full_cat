@@ -1,0 +1,11 @@
+
+#    db_read  : all / OMW / openclust / mwsc / camargo / webda
+#               select all, the 3 mayor DBs, or a single database to process.
+#    max_sep  : match radius in arcseconds.
+#    defFlag  : use astropy's default values for the Galactic frame.
+#    plotFlag : generate plots for the cross-matched set.
+#    dpi      : dpi for final plot.
+#    mode     : z_dist / d_dist; vertical or to-Sun distance.
+
+db_read   max_sep   defFlag   plotFlag   dpi     mode
+    all      1800     False       True   150   z_dist

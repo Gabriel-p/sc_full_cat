@@ -14,26 +14,22 @@ import numpy as np
 # from difflib import SequenceMatcher
 
 
-def main(max_sep=1800., defFlag=False, plotFlag=True, db_read='all'):
+def main():
     """
-
-    max_sep: match radius in arcseconds.
-    defFlag: use astropy's default values for the Galactic frame.
-    plotFlag: generate plots for the cross-matched set.
-    db_read: select all or a single database to read in.
-            (all, openclust, mwsc, camargo, webda)
-
     """
+    db_read, max_sep, defFlag, plotFlag, dpi, mode = readParams()
+    print("Mode: {}".format(db_read))
+
     # Define Galactocentric frame
     gc_frame = frameGalactocentric(defFlag)
 
     # Read databases.
-    print("Read databases.")
+    print("Read databases")
     allDatabases = readData(db_read)
 
     # Cross-match all databases.
-    if db_read == 'all':
-        print("Perform cross-match (max_sep={}).".format(max_sep))
+    if db_read in ('all', 'OMW'):
+        print("Perform cross-match (max_sep={})".format(max_sep))
         allData = crossMatch(allDatabases, max_sep)
     else:
         allData = allDatabases
@@ -47,10 +43,36 @@ def main(max_sep=1800., defFlag=False, plotFlag=True, db_read='all'):
 
     if plotFlag:
         print('Plotting...')
-        # Plot each catalog separately.
-        for name, data in allData.items():
+        if db_read == 'OMW':
+            data = allData['crossMdata']
+            name = 'OMW'
             print("  {}".format(name))
-            makePlot(name, data, gc_frame)
+            makePlot(dpi, mode, db_read, name, data, gc_frame)
+        else:
+            # Plot each catalog separately.
+            for name, data in allData.items():
+                print("  {}".format(name))
+                makePlot(dpi, mode, db_read, name, data, gc_frame)
+
+
+def readParams():
+    """
+    max_sep  : match radius in arcseconds.
+    defFlag  : use astropy's default values for the Galactic frame.
+    plotFlag : generate plots for the cross-matched set.
+    dpi      : dpi for final plot.
+    mode     : z_dist / d_dist; vertical or to-Sun distance.
+    db_read  : all / openclust / mwsc / camargo / webda / OMW; select all
+               or a single database to read in.
+    """
+    pars = ascii.read('params_input.dat')
+
+    db_read, max_sep = pars['db_read'][0], float(pars['max_sep'])
+    defFlag = True if pars['defFlag'][0] == 'True' else False
+    plotFlag = True if pars['plotFlag'][0] == 'True' else False
+    dpi, mode = float(pars['dpi']), pars['mode'][0]
+
+    return db_read, max_sep, defFlag, plotFlag, dpi, mode
 
 
 def frameGalactocentric(defFlag=True):
@@ -185,6 +207,16 @@ def readData(db_read):
 
         db_dict = {'WEBDA': webda, 'OPENCLUST': openclst, 'Camargo': camargo,
                    'MWSC': mwsc}
+
+    if db_read == 'OMW':
+        print("  OPENCLUST")
+        openclst = oc_read()
+        print("  MWSC")
+        mwsc = mwsc_read()
+        print("  WEBDA")
+        webda = webda_read()
+
+        db_dict = {'WEBDA': webda, 'OPENCLUST': openclst, 'MWSC': mwsc}
 
     elif db_read == 'openclust':
         openclst = oc_read()
@@ -449,7 +481,7 @@ def write2File(allData):
     print("Cross-matched data written to file.")
 
 
-def makePlot(name, data, gc_frame):
+def makePlot(dpi, mode, db_read, name, data, gc_frame):
     """
     Gridspec idea: http://www.sc.eso.org/~bdias/pycoffee/codes/20160407/
                    gridspec_demo.html
@@ -461,14 +493,46 @@ def makePlot(name, data, gc_frame):
     # Ignore RuntimeWarning when creating the masks
     warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-    # Vertical distance masks.
-    mnan = np.isnan(data['z_pc'])
-    m200 = abs(data['z_pc']) <= 200
-    m600 = (200 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 600)
-    m1000 = (600 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1000)
-    m1500 = (1000 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1500)
-    m2500 = (1500 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 2500)
-    minf = abs(data['z_pc']) > 2500
+    if mode == 'z_dist':
+        # Vertical distance masks.
+        mnan = np.isnan(data['z_pc'])
+        m200 = abs(data['z_pc']) <= 200
+        m600 = (200 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 600)
+        m1000 = (600 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1000)
+        m1500 = (1000 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1500)
+        m2500 = (1500 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 2500)
+        minf = abs(data['z_pc']) > 2500
+        plt_data = {
+            '0': [20, .5, 'x', 'k', r'$No\,dist\; (N={})$'],
+            '1': [20., .3, 'o', 'grey', r'$z\leq 200\,[pc]\; (N={})$'],
+            '2': [25., .3, 'o', 'red', r'$200<z\leq600\,[pc]\;(N={})$'],
+            '3': [25., .3, 'o', 'orange', r'$600<z\leq1000\,[pc]\;(N={})$'],
+            '4': [30., .4, 'o', 'green', r'$1000<z\leq1500\,[pc]\;(N={})$'],
+            '5': [50., .5, 'o', 'cyan', r'$1500<z\leq2500\,[pc]\;(N={})$'],
+            '6': [70., .6, 'o', 'blue', r'$z>2500\,[pc]\;(N={})$']
+        }
+        mask_list = [mnan, m200, m600, m1000, m1500, m2500, minf]
+
+    elif mode == 'd_dist':
+        mnan = np.isnan(data['z_pc'])
+        m1000 = abs(data['dist_pc']) <= 1000
+        m2000 = (1000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 2000)
+        m3000 = (2000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 3000)
+        m4000 = (3000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 4000)
+        m5000 = (4000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 5000)
+        m6000 = (5000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 6000)
+        minf = abs(data['dist_pc']) > 6000
+        plt_data = {
+            '0': [20, .5, 'x', 'k', r'$No\,dist\; (N={})$'],
+            '1': [25., .4, 'o', 'grey', r'$d\leq 1000\,[pc]\; (N={})$'],
+            '2': [25., .4, 'o', 'red', r'$1000<d\leq2000\,[pc]\;(N={})$'],
+            '3': [25., .4, 'o', 'orange', r'$2000<d\leq3000\,[pc]\;(N={})$'],
+            '4': [25., .4, 'o', 'green', r'$3000<d\leq4000\,[pc]\;(N={})$'],
+            '5': [25., .4, 'o', 'cyan', r'$4000<d\leq5000\,[pc]\;(N={})$'],
+            '6': [25., .4, 'o', 'blue', r'$5000<d\leq6000\,[pc]\;(N={})$'],
+            '7': [25., .4, 'o', 'purple', r'$d>6000\,[pc]\;(N={})$']
+        }
+        mask_list = [mnan, m1000, m2000, m3000, m4000, m5000, m6000, minf]
 
     fig = plt.figure(figsize=(25, 25))
     gs = gridspec.GridSpec(
@@ -481,26 +545,19 @@ def makePlot(name, data, gc_frame):
     ax.set_xticklabels([
         r'210$^{\circ}$', r'240$^{\circ}$', r'270$^{\circ}$', r'300$^{\circ}$',
         r'330$^{\circ}$', r'0$^{\circ}$', r'30$^{\circ}$', r'60$^{\circ}$',
-        r'90$^{\circ}$', r'120$^{\circ}$', r'150$^{\circ}$'])
+        r'90$^{\circ}$', r'120$^{\circ}$', r'150$^{\circ}$'], fontsize=18)
+    plt.yticks(fontsize=18)
     ax.grid(True)
 
-    plt_data = {
-        '0': [15, .5, 'x', 'k', r'$No\,dist\; (N={})$'],
-        '1': [15., .3, 'o', 'grey', r'$z\leq 200\,[pc]\; (N={})$'],
-        '2': [20., .3, 'o', 'red', r'$200<z\leq600\,[pc]\;(N={})$'],
-        '3': [20., .3, 'o', 'orange', r'$600<z\leq1000\,[pc]\;(N={})$'],
-        '4': [25., .4, 'o', 'green', r'$1000<z\leq1500\,[pc]\;(N={})$'],
-        '5': [50., .5, 'o', 'cyan', r'$1500<z\leq2500\,[pc]\;(N={})$'],
-        '6': [70., .6, 'o', 'blue', r'$z>2500\,[pc]\;(N={})$']
-    }
     cl_plots1, cl_plots2 = [[], []], [[], []]
-    for i, m in enumerate([mnan, m200, m600, m1000, m1500, m2500, minf]):
+    for i, m in enumerate(mask_list):
         # Only plot if there are objects to plot.
         if sum(m) > 0:
             ms, a, mrk, c, lab = plt_data[str(i)]
+
             pl = ax.scatter(
-                data['lon'][m], data['lat'][m], marker=mrk, s=ms, alpha=a, c=c,
-                label=lab.format(len(data['lon'][m])))
+                data['lon'][m], data['lat'][m], marker=mrk, s=ms, alpha=a,
+                c=c, label=lab.format(len(data['lon'][m])))
 
             if i in [0, 1, 2, 3]:
                 cl_plots1[0].append(pl)
@@ -509,17 +566,39 @@ def makePlot(name, data, gc_frame):
                 cl_plots2[0].append(pl)
                 cl_plots2[1].append(lab.format(len(data['lon'][m])))
 
-            # Only plot names for those with the two largest 'z' values.
-            fs = [6, 8, 10]
-            if i in [4, 5, 6]:
-                for _, (lon, lat) in enumerate(
-                        zip(*[data['lon'][m], data['lat'][m]])):
-                    ax.annotate(data['name'][m][_].split(',')[0],
-                                (lon, lat), xycoords='data',
-                                fontsize=fs[i - 4])
+            # # Name annotate
+            # lon_lat_cust = (
+            #     (227.33827932, -8.74737685), (132.14541698, -8.73629164),
+            #     (147.48401456, -1.47915429), (242.89042522, -6.86623902),
+            #     (242.74214783, 4.89128908), (177.89050533, -0.43351877))
+            # name_cust = ('GAIA1', 'GAIA2', 'GAIA4', 'GAIA5', 'GAIA6', 'GAIA7')
 
-    l1 = plt.legend(cl_plots1[0], cl_plots1[1], loc=1)
-    plt.legend(cl_plots2[0], cl_plots2[1], loc=4)
+            # if db_read == 'custom':
+            #     for _, (lon, lat) in enumerate(lon_lat_cust):
+
+            #         lb = SkyCoord(lon, lat, unit='degree', frame='galactic')
+            #         rad_l = lb.l.wrap_at(180 * u.deg).radian
+            #         rad_b = lb.b.radian
+
+            #         ax.scatter(rad_l, rad_b, marker='o', s=50, c='k', zorder=5)
+            #         xshift = -0.25 if name_cust[_] == 'GAIA7' else 0.015
+            #         yshift = -0.05 if name_cust[_] == 'GAIA4' else 0.015
+            #         ax.annotate(
+            #             name_cust[_], (rad_l + xshift, rad_b + yshift),
+            #             xycoords='data', color='b', fontsize=16)
+
+            if mode == 'z_dist':
+                # Only plot names for those with the two largest 'z' values.
+                fs = [6, 8, 10]
+                if i in [4, 5, 6]:
+                    for _, (lon, lat) in enumerate(
+                            zip(*[data['lon'][m], data['lat'][m]])):
+                        ax.annotate(data['name'][m][_].split(',')[0],
+                                    (lon, lat), xycoords='data',
+                                    fontsize=fs[i - 4])
+
+    l1 = plt.legend(cl_plots1[0], cl_plots1[1], loc=1, fontsize=12)
+    plt.legend(cl_plots2[0], cl_plots2[1], loc=4, fontsize=12)
     plt.gca().add_artist(l1)
 
     plt.style.use('seaborn-darkgrid')
@@ -534,8 +613,8 @@ def makePlot(name, data, gc_frame):
         -x_sun, 0., z_sun, unit='kpc', representation_type='cartesian')
 
     ax = plt.subplot(gs[4:6, 0:2])
-    plt.xlabel(r"$x_{GC}\, [kpc]$")
-    plt.ylabel(r"$y_{GC}\, [kpc]$")
+    plt.xlabel(r"$x_{GC}\, [kpc]$", fontsize=12)
+    plt.ylabel(r"$y_{GC}\, [kpc]$", fontsize=12)
     vmin, vmax = max(min(data['z_pc']), -2.5), min(max(data['z_pc']), 2.5)
     plt1 = plt.scatter(
         data['x_pc'], data['y_pc'].data, alpha=.5, c=data['z_pc'],
@@ -560,7 +639,7 @@ def makePlot(name, data, gc_frame):
                 plt.plot(xy_arm[0], xy_arm[1], ls='--', label=sp_name)
     plt.xlim(max(xmin, -20.), min(xmax, 20.))
     plt.ylim(max(ymin, -15.), min(ymax, 15.))
-    plt.legend()
+    plt.legend(fontsize=10)
     # colorbar
     cbax = plt.subplot(gs[3:4, 0:2])
     cb = Colorbar(
@@ -569,8 +648,8 @@ def makePlot(name, data, gc_frame):
         min(data['z_pc']), max(data['z_pc'])), labelpad=10)
 
     ax = plt.subplot(gs[4:6, 2:4])
-    plt.xlabel(r"$x_{GC}\, [kpc]$")
-    plt.ylabel(r"$z_{GC}\, [kpc]$")
+    plt.xlabel(r"$x_{GC}\, [kpc]$", fontsize=12)
+    plt.ylabel(r"$z_{GC}\, [kpc]$", fontsize=12)
     vmin, vmax = max(ymin, -15.), min(ymax, 15.)
     plt2 = plt.scatter(
         data['x_pc'], data['z_pc'], alpha=.5, c=data['y_pc'], cmap='viridis',
@@ -587,8 +666,8 @@ def makePlot(name, data, gc_frame):
         min(data['y_pc']), max(data['y_pc'])), labelpad=10)
 
     ax = plt.subplot(gs[4:6, 4:6])
-    plt.xlabel(r"$y_{GC}\, [kpc]$")
-    plt.ylabel(r"$z_{GC}\, [kpc]$")
+    plt.xlabel(r"$y_{GC}\, [kpc]$", fontsize=12)
+    plt.ylabel(r"$z_{GC}\, [kpc]$", fontsize=12)
     vmin, vmax = max(xmin, -20.), min(xmax, 20.)
     plt3 = plt.scatter(
         data['y_pc'], data['z_pc'], alpha=.5, c=data['x_pc'], cmap='viridis',
@@ -607,7 +686,7 @@ def makePlot(name, data, gc_frame):
         x_sun, z_sun), x=.52, y=.4, fontsize=14)
 
     fig.tight_layout()
-    fig.savefig('output/' + name + '.png', dpi=150, bbox_inches='tight')
+    fig.savefig('output/' + name + '.png', dpi=dpi, bbox_inches='tight')
     plt.style.use('default')
 
 
