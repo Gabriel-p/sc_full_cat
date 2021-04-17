@@ -104,3 +104,6 @@ ENV/
 !/crossMdata.png
 input_expl/*.dat
 
+*sublime-project
+*sublime-workspace
+output/*
