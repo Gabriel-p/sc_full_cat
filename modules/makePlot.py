@@ -8,7 +8,7 @@ import numpy as np
 from . import spiralArms
 
 
-def plot(dpi, mode, data, gc_frame):
+def plot(dpi, mode, crossMdata, gc_frame):
     """
     Gridspec idea: http://www.sc.eso.org/~bdias/pycoffee/codes/20160407/
                    gridspec_demo.html
@@ -22,13 +22,17 @@ def plot(dpi, mode, data, gc_frame):
 
     if mode == 'z_dist':
         # Vertical distance masks.
-        mnan = np.isnan(data['z_pc'])
-        m200 = abs(data['z_pc']) <= 200
-        m600 = (200 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 600)
-        m1000 = (600 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1000)
-        m1500 = (1000 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 1500)
-        m2500 = (1500 < abs(data['z_pc'])) & (abs(data['z_pc']) <= 2500)
-        minf = abs(data['z_pc']) > 2500
+        mnan = np.isnan(crossMdata['z_pc'])
+        m200 = abs(crossMdata['z_pc']) <= 200
+        m600 = (200 < abs(crossMdata['z_pc'])) & (
+            abs(crossMdata['z_pc']) <= 600)
+        m1000 = (600 < abs(crossMdata['z_pc'])) & (
+            abs(crossMdata['z_pc']) <= 1000)
+        m1500 = (1000 < abs(crossMdata['z_pc'])) & (
+            abs(crossMdata['z_pc']) <= 1500)
+        m2500 = (1500 < abs(crossMdata['z_pc'])) & (
+            abs(crossMdata['z_pc']) <= 2500)
+        minf = abs(crossMdata['z_pc']) > 2500
         plt_data = {
             '0': [20, .5, 'x', 'k', r'$No\,dist\; (N={})$'],
             '1': [20., .3, 'o', 'grey', r'$z\leq 200\,[pc]\; (N={})$'],
@@ -41,14 +45,19 @@ def plot(dpi, mode, data, gc_frame):
         mask_list = [mnan, m200, m600, m1000, m1500, m2500, minf]
 
     elif mode == 'd_dist':
-        mnan = np.isnan(data['z_pc'])
-        m1000 = abs(data['dist_pc']) <= 1000
-        m2000 = (1000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 2000)
-        m3000 = (2000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 3000)
-        m4000 = (3000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 4000)
-        m5000 = (4000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 5000)
-        m6000 = (5000 < abs(data['dist_pc'])) & (abs(data['dist_pc']) <= 6000)
-        minf = abs(data['dist_pc']) > 6000
+        mnan = np.isnan(crossMdata['z_pc'])
+        m1000 = abs(crossMdata['dist_pc']) <= 1000
+        m2000 = (1000 < abs(crossMdata['dist_pc'])) & (
+            abs(crossMdata['dist_pc']) <= 2000)
+        m3000 = (2000 < abs(crossMdata['dist_pc'])) & (
+            abs(crossMdata['dist_pc']) <= 3000)
+        m4000 = (3000 < abs(crossMdata['dist_pc'])) & (
+            abs(crossMdata['dist_pc']) <= 4000)
+        m5000 = (4000 < abs(crossMdata['dist_pc'])) & (
+            abs(crossMdata['dist_pc']) <= 5000)
+        m6000 = (5000 < abs(crossMdata['dist_pc'])) & (
+            abs(crossMdata['dist_pc']) <= 6000)
+        minf = abs(crossMdata['dist_pc']) > 6000
         plt_data = {
             '0': [20, .5, 'x', 'k', r'$No\,dist\; (N={})$'],
             '1': [25., .4, 'o', 'grey', r'$d\leq 1000\,[pc]\; (N={})$'],
@@ -68,7 +77,7 @@ def plot(dpi, mode, data, gc_frame):
     gs.update(hspace=0.03, wspace=.3)
 
     ax = plt.subplot(gs[0:3, 0:6], projection="aitoff")
-    plt.title('Database N={}'.format(len(data)), y=1.02)
+    plt.title('Database N={}'.format(len(crossMdata)), y=1.02)
     ax.set_xticklabels([
         r'210$^{\circ}$', r'240$^{\circ}$', r'270$^{\circ}$', r'300$^{\circ}$',
         r'330$^{\circ}$', r'0$^{\circ}$', r'30$^{\circ}$', r'60$^{\circ}$',
@@ -83,15 +92,15 @@ def plot(dpi, mode, data, gc_frame):
             ms, a, mrk, c, lab = plt_data[str(i)]
 
             pl = ax.scatter(
-                data['lon'][m], data['lat'][m], marker=mrk, s=ms, alpha=a,
-                c=c, label=lab.format(len(data['lon'][m])))
+                crossMdata['lon'][m], crossMdata['lat'][m], marker=mrk, s=ms,
+                alpha=a, c=c, label=lab.format(len(crossMdata['lon'][m])))
 
             if i in [0, 1, 2, 3]:
                 cl_plots1[0].append(pl)
-                cl_plots1[1].append(lab.format(len(data['lon'][m])))
+                cl_plots1[1].append(lab.format(len(crossMdata['lon'][m])))
             else:
                 cl_plots2[0].append(pl)
-                cl_plots2[1].append(lab.format(len(data['lon'][m])))
+                cl_plots2[1].append(lab.format(len(crossMdata['lon'][m])))
 
             # # Name annotate
             # lon_lat_cust = (
@@ -119,8 +128,9 @@ def plot(dpi, mode, data, gc_frame):
                 fs = [6, 8, 10]
                 if i in [4, 5, 6]:
                     for _, (lon, lat) in enumerate(
-                            zip(*[data['lon'][m], data['lat'][m]])):
-                        ax.annotate(data['name'][m][_].split(',')[0],
+                            zip(*[
+                                crossMdata['lon'][m], crossMdata['lat'][m]])):
+                        ax.annotate(crossMdata['name'][m][_].split(',')[0],
                                     (lon, lat), xycoords='data',
                                     fontsize=fs[i - 4])
 
@@ -130,9 +140,9 @@ def plot(dpi, mode, data, gc_frame):
 
     plt.style.use('seaborn-darkgrid')
 
-    data['x_pc'].convert_unit_to('kpc')
-    data['y_pc'].convert_unit_to('kpc')
-    data['z_pc'].convert_unit_to('kpc')
+    crossMdata['x_pc'].convert_unit_to('kpc')
+    crossMdata['y_pc'].convert_unit_to('kpc')
+    crossMdata['z_pc'].convert_unit_to('kpc')
 
     # Sun's coords according to the Galactocentric frame.
     x_sun, z_sun = gc_frame.galcen_distance, gc_frame.z_sun
@@ -142,10 +152,11 @@ def plot(dpi, mode, data, gc_frame):
     ax = plt.subplot(gs[4:6, 0:2])
     plt.xlabel(r"$x_{GC}\, [kpc]$", fontsize=12)
     plt.ylabel(r"$y_{GC}\, [kpc]$", fontsize=12)
-    vmin, vmax = max(min(data['z_pc']), -2.5), min(max(data['z_pc']), 2.5)
+    vmin, vmax = max(min(crossMdata['z_pc']), -2.5),\
+        min(max(crossMdata['z_pc']), 2.5)
     plt1 = plt.scatter(
-        data['x_pc'], data['y_pc'].data, alpha=.5, c=data['z_pc'],
-        cmap='viridis', vmin=vmin, vmax=vmax)
+        crossMdata['x_pc'], crossMdata['y_pc'].data, alpha=.5,
+        c=crossMdata['z_pc'], cmap='viridis', vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.x, s_xys.y, c='yellow', s=50, edgecolor='k')
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
@@ -172,42 +183,45 @@ def plot(dpi, mode, data, gc_frame):
     cb = Colorbar(
         ax=cbax, mappable=plt1, orientation='horizontal', ticklocation='top')
     cb.set_label(r"${:.1f} < z_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(data['z_pc']), max(data['z_pc'])), labelpad=10)
+        min(crossMdata['z_pc']), max(crossMdata['z_pc'])), labelpad=10)
 
     ax = plt.subplot(gs[4:6, 2:4])
     plt.xlabel(r"$x_{GC}\, [kpc]$", fontsize=12)
     plt.ylabel(r"$z_{GC}\, [kpc]$", fontsize=12)
     vmin, vmax = max(ymin, -15.), min(ymax, 15.)
     plt2 = plt.scatter(
-        data['x_pc'], data['z_pc'], alpha=.5, c=data['y_pc'], cmap='viridis',
-        vmin=vmin, vmax=vmax)
+        crossMdata['x_pc'], crossMdata['z_pc'], alpha=.5, c=crossMdata['y_pc'],
+        cmap='viridis', vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.x, s_xys.z, c='yellow', s=50, edgecolor='k')
     plt.scatter(0., 0., c='k', marker='x', s=70)
     plt.xlim(max(xmin, -20.), min(xmax, 20.))
-    plt.ylim(max(min(data['z_pc']), -3.), min(max(data['z_pc']), 3.))
+    plt.ylim(max(min(crossMdata['z_pc']), -3.),
+             min(max(crossMdata['z_pc']), 3.))
     # colorbar
     cbax = plt.subplot(gs[3:4, 2:4])
     cb = Colorbar(
         ax=cbax, mappable=plt2, orientation='horizontal', ticklocation='top')
     cb.set_label(r"${:.1f} < y_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(data['y_pc']), max(data['y_pc'])), labelpad=10)
+        min(crossMdata['y_pc']), max(crossMdata['y_pc'])), labelpad=10)
 
     ax = plt.subplot(gs[4:6, 4:6])
     plt.xlabel(r"$y_{GC}\, [kpc]$", fontsize=12)
     plt.ylabel(r"$z_{GC}\, [kpc]$", fontsize=12)
     vmin, vmax = max(xmin, -20.), min(xmax, 20.)
     plt3 = plt.scatter(
-        data['y_pc'], data['z_pc'], alpha=.5, c=data['x_pc'], cmap='viridis',
-        vmin=vmin, vmax=vmax)
+        crossMdata['y_pc'], crossMdata['z_pc'], alpha=.5, c=crossMdata['x_pc'],
+        cmap='viridis', vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.y, s_xys.z, c='yellow', s=50, edgecolor='k')
     plt.xlim(max(ymin, -15.), min(ymax, 15.))
-    plt.ylim(max(min(data['z_pc']), -3.), min(max(data['z_pc']), 3.))
+    plt.ylim(max(min(crossMdata['z_pc']), -3.),
+             min(max(crossMdata['z_pc']), 3.))
     # colorbar
     cbax = plt.subplot(gs[3:4, 4:6])
     cb = Colorbar(
         ax=cbax, mappable=plt3, orientation='horizontal', ticklocation='top')
     cb.set_label(r"${:.1f} < x_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(data['x_pc'].data), max(data['x_pc'].data)), labelpad=10)
+        min(crossMdata['x_pc'].data), max(crossMdata['x_pc'].data)),
+        labelpad=10)
 
     plt.suptitle(r'$[d_{{GC}}={},\;\;z_{{\odot}}={}]$'.format(
         x_sun, z_sun), x=.52, y=.4, fontsize=14)

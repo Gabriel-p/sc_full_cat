@@ -8,111 +8,80 @@ import numpy as np
 
 def match(allDatabases, max_sep):
     """
-    Cross-match the databases in 'allDatabases', using the 'max_sep' value
-    as the limiting match radius in arcsec.
-
-    At each iteration the (ra, dec) values are averaged and these updated
-    values are compared with the next database.
     """
 
-    # # Ignore Warning converting nan to masked element.
-    # warnings.filterwarnings("ignore", category=UserWarning)
+    # crossMdata = nameMatch(allDatabases)
+    r_max_deg = (max_sep / 3600) * u.deg
 
-    # Initial Table with proper format and a single dummy entry.
-    crossMdata = Table(
-        [['NaN'], [-179.9] * u.deg, [-89.9] * u.deg],
-        names=('name', 'ra', 'dec'))
+    # Initial Table
+    DB_names = list(allDatabases.keys())
+    crossMdata = allDatabases[DB_names[0]]
+    print("\nInitial database: {}".format(DB_names[0]))
 
-    procDatabases = []
-    for DB_name, data in allDatabases.items():
+    new_names = []
+    for i, cl in enumerate(crossMdata['name']):
+        new_names.append(cl + ' (' + DB_names[0] + ')')
+    crossMdata['name'] = new_names
+
+    crossMdata['N_m'] = np.ones(len(crossMdata))
+
+    # Process the remaining DBs
+    for DB_name in DB_names[1:]:
         print("  (processing {})".format(DB_name))
 
-        idx2_unq, d2d_unq, idx2_ncm = unqCrossMatch(crossMdata, data)
+        data = allDatabases[DB_name]
 
-        n_m, ra_m, dec_m = [], [], []
-        idx1_ncm, idx1_m, idx2_m = [], [], []
+        # Initial full list of observed and queried catalogs.
+        c1_ids = np.arange(len(crossMdata))
+        c2_ids = np.arange(len(data))
 
-        # For each element in crossMdata
-        for i1, i2 in enumerate(idx2_unq):
+        cm_ra, cm_de = crossMdata['ra'].value * u.deg,\
+            crossMdata['dec'].value * u.deg
+        da_ra, da_de = data['ra'].value * u.deg, data['dec'].value * u.deg
 
-            # No match found for this element.
-            if np.isnan(i2):
-                idx1_ncm.append(i1)
-            else:
-                # Found match
-                if d2d_unq[i1] < max_sep * u.arcsec:
-                    # Store all names.
-                    n_m.append(
-                        # + ' ({})'.format(DB_name[0]))
-                        crossMdata['name'][i1] + ', ' + data['name'][i2])
+        # Store the indexes in 'c1' and c2'
+        idx1_unq, idx2_unq, N_old = [], [], 0
+        while True:
 
-                    # Store averaged (ra, dec) values.
-                    ra_m.append(np.mean([
-                        crossMdata['ra'][i1], data['ra'][i2]]))
-                    dec_m.append(np.mean([
-                        crossMdata['dec'][i1], data['dec'][i2]]))
+            # Define catalogs to be matched.
+            c1 = SkyCoord(ra=cm_ra, dec=cm_de)
+            c2 = SkyCoord(ra=da_ra, dec=da_de)
 
-                    # Indexes
-                    idx1_m.append(i1)
-                    idx2_m.append(i2)
-                else:
-                    # Rejected match, 'max_sep' criteria.
-                    idx1_ncm.append(i1)
-                    idx2_ncm.append(i2)
+            # 'idx2' are indices into 'c2' that are the closest objects to each
+            # of the coordinates in 'c1'.
+            idx2, d2d, _ = c1.match_to_catalog_sky(c2)
 
-        n_nm, ra_nm, dec_nm, idx_nm = [], [], [], []
-        for i1 in idx1_ncm:
-            n_nm.append(crossMdata['name'][i1])
-            ra_nm.append(crossMdata['ra'][i1])
-            dec_nm.append(crossMdata['dec'][i1])
-            idx_nm.append('--')
+            N_new = (d2d < r_max_deg).sum()
+            if N_new <= 0 or N_old == N_new:
+                break
+            N_old = N_new
 
-        for i2 in idx2_ncm:
-            n_nm.append(data['name'][i2])
-            ra_nm.append(data['ra'][i2])
-            dec_nm.append(data['dec'][i2])
-            idx_nm.append(i2)
+            # Sort by smallest distance first
+            di = np.argsort(d2d)
+            for i in di:
+                if d2d[i] < r_max_deg:
+                    if idx2[i] not in idx2_unq:
+                        # This is an acceptable match
+                        idx1_unq.append(c1_ids[i])
+                        idx2_unq.append(c2_ids[idx2[i]])
 
-        # Combine matched and not matched data.
-        n_cmb = Column(n_m + n_nm, name='name')
-        ra_cmb = Column(ra_m + ra_nm, name='ra', unit=u.degree)
-        dec_cmb = Column(dec_m + dec_nm, name='dec', unit=u.degree)
-        tempData = Table([n_cmb, ra_cmb, dec_cmb])
+            # Remove the matched elements from the catalogs
+            cm_ra[idx1_unq] = 0.
+            cm_de[idx1_unq] = 0.
+            da_ra[idx2_unq] = 0.
+            da_de[idx2_unq] = 0.
 
-        # Add indexes pointing to the clusters in each database
-        for n in allDatabases.keys():
-            if n == DB_name:
-                tempData.add_column(Column(
-                    idx2_m + idx_nm, name=DB_name))
-            elif n in procDatabases:
-                tempData.add_column(Column(
-                    list(crossMdata[n][idx1_m])
-                    + list(crossMdata[n][idx1_ncm])
-                    + ['--'] * (len(tempData) - len(idx1_m) - len(idx1_ncm)),
-                    name=n))
-            else:
-                tempData.add_column(Column(
-                    ['--'] * len(tempData), name=n))
+        # Indexes for elements with no match found.
+        idx1_ncm = [_ for _ in c1_ids if _ not in idx1_unq]
+        idx2_ncm = [_ for _ in c2_ids if _ not in idx2_unq]
 
-        # Signal that this database was already processed.
-        procDatabases.append(DB_name)
-        # Update final database.
-        crossMdata = tempData
+        crossMdata = updtCrossMData(
+            crossMdata, data, DB_name, idx1_unq, idx2_unq, idx1_ncm, idx2_ncm)
 
-    # Count the number of matches found for each cluster.
-    all_msk = []
-    for db_name in allDatabases.keys():
-        all_msk.append(crossMdata[db_name] != '--')
-    all_msk = np.array(all_msk).T
-    crossMdata['N_m'] = all_msk.sum(1)
-
-    # Remove initial dummy 'NaN' entry.
-    crossMdata.add_index('name')
-    nan_idx = crossMdata.loc['NaN'].index
-    crossMdata.remove_row(nan_idx)
+    # Store mean distance values
+    crossMdata['dist_pc'] = crossMdata['dist_pc'] / crossMdata['N_m']
 
     print("Databases cross-matched")
-
     for Nm in np.arange(crossMdata['N_m'].max(), 0, -1):
         if Nm == 1:
             txt = 'No cross-match found'
@@ -120,67 +89,95 @@ def match(allDatabases, max_sep):
             txt = '{} matches found'.format(Nm)
         print("  {}: {}".format(txt, (crossMdata['N_m'] == Nm).sum()))
 
-    # Add cross-matched to all databases.
-    allDatabases['crossMdata'] = crossMdata
-
-    return allDatabases
+    return crossMdata
 
 
-def unqCrossMatch(crossMdata, data):
+def nameMatch(allDatabases):
     """
     """
-    # Define catalogs to be matched.
-    c1 = SkyCoord(ra=crossMdata['ra'], dec=crossMdata['dec'])
-    c2 = SkyCoord(ra=data['ra'], dec=data['dec'])
 
-    # 'idx2' are indices into 'c2' that are the closest objects to each of
-    # the coordinates in 'c1'.
-    idx2, d2d, _ = c1.match_to_catalog_sky(c2)
+    # Initial Table
+    DB_names = list(allDatabases.keys())
+    crossMdata = allDatabases[DB_names[0]]
 
-    idx2_unq, d2d_unq = [], []
-    # Duplicate matches: keep the closest match and replace the other with
-    # a 'nan' value.
-    for j, i2 in enumerate(idx2):
+    idx_names = {}
+    for DB_name in DB_names[1:]:
+        data = allDatabases[DB_name]
 
-        # sim = similar(crossMdata['name'][j], data['name'][i2])
-        # print(crossMdata['name'][j], data['name'][i2], sim)
+        cm_n = [_.replace(' ', '').replace('_', '').lower() for _ in crossMdata['name']]
+        da_n = [_.replace(' ', '').replace('_', '').lower() for _ in data['name']]
 
-        # If this match is already stored.
-        if i2 in idx2_unq:
-            # Find the index for this index.
-            i = idx2_unq.index(i2)
-            # If this is a better match than the one stored.
-            if d2d[j] < d2d_unq[i]:
-                # Store 'nan' values in the 'old' position.
-                idx2_unq[i] = np.nan
-                d2d_unq[i] = np.nan
-                # Replace the old index (and distance) with this new one.
-                idx2_unq.append(i2)
-                d2d_unq.append(d2d[j])
-            else:
-                # The index is already stored, but this is not a better
-                # match. Store 'nan' values.
-                idx2_unq.append(np.nan)
-                d2d_unq.append(np.nan)
-        else:
-            # Index not in unique list, store.
-            idx2_unq.append(i2)
-            d2d_unq.append(d2d[j])
+        idx_cm, idx_da = [], []
+        for i, cl in enumerate(cm_n):
+            try:
+                j = da_n.index(cl)
+                idx_cm.append(i)
+                idx_da.append(j)
+            except ValueError:
+                pass
 
-    # Indexes in 'data' with no match found.
-    idx2_ncm = [_ for _ in range(len(c2)) if _ not in idx2_unq]
+        idx_names[DB_name] = (idx_cm, idx_da)
 
-    return idx2_unq, d2d_unq, idx2_ncm
+    breakpoint()
+
+    new_names = []
+    for i, cl in enumerate(crossMdata['name']):
+        new_names.append(cl + ' (' + DB_names[0] + ')')
+    crossMdata['name'] = new_names
+
+    # for DB_name, idxs in idx_names.items():
 
 
-# def nansumwrapper(a):
-#     """
-#     'nansum' returns 0.0 if the elements are all 'nan'. This forces a 'nan'
-#     value to be returned instead.
+    return crossMdata
 
-#     Source: https://stackoverflow.com/a/48405633/1391441
-#     """
-#     if np.isnan(a).all():
-#         return np.nan
-#     else:
-#         return np.nansum(a)
+
+def updtCrossMData(
+        crossMdata, data, DB_name, idx1_unq, idx2_unq, idx1_ncm, idx2_ncm):
+    """
+    """
+    name_m, ra_m, dec_m, dist_m, Nm_m = [], [], [], [], []
+    # For each crossed-match element
+    for j, i2 in enumerate(idx2_unq):
+
+        i1 = idx1_unq[j]
+
+        # Store all names.
+        name_m.append(crossMdata['name'][i1] + ', ' + data['name'][i2]
+                      + ' (' + DB_name + ')')
+        # Store averaged (ra, dec) values.
+        ra_m.append(np.mean([crossMdata['ra'][i1], data['ra'][i2]]))
+        dec_m.append(np.mean([crossMdata['dec'][i1], data['dec'][i2]]))
+        # Sum individual distances
+        dist_m.append(np.nansum([
+            crossMdata['dist_pc'][i1], data['dist_pc'][i2]]))
+        Nm_m.append(crossMdata['N_m'][i1] + 1.)
+
+    name_nm, ra_nm, dec_nm, idx_nm, dist_nm, Nm_nm = [], [], [], [], [], []
+    for i1 in idx1_ncm:
+        name_nm.append(crossMdata['name'][i1])
+        ra_nm.append(crossMdata['ra'][i1])
+        dec_nm.append(crossMdata['dec'][i1])
+        idx_nm.append('--')
+        dist_nm.append(crossMdata['dist_pc'][i1])
+        Nm_nm.append(crossMdata['N_m'][i1])
+
+    for i2 in idx2_ncm:
+        name_nm.append(data['name'][i2] + ' (' + DB_name + ')')
+        ra_nm.append(data['ra'][i2])
+        dec_nm.append(data['dec'][i2])
+        idx_nm.append(i2)
+        dist_nm.append(data['dist_pc'][i2])
+        Nm_nm.append(1.)
+
+    # Combine matched and not matched data.
+    n_cmb = Column(name_m + name_nm, name='name')
+    ra_cmb = Column(ra_m + ra_nm, name='ra', unit=u.degree)
+    dec_cmb = Column(dec_m + dec_nm, name='dec', unit=u.degree)
+    dist_cmb = Column(dist_m + dist_nm, name='dist_pc', unit=u.pc)
+    Nm_cmb = Column(Nm_m + Nm_nm, name='N_m')
+    tempData = Table([n_cmb, ra_cmb, dec_cmb, dist_cmb, Nm_cmb])
+
+    # Update final database.
+    crossMdata = tempData
+
+    return crossMdata
