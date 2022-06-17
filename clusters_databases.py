@@ -1,10 +1,8 @@
 
 import os
 from astropy import units as u
-# from astropy.coordinates.distances import Distance
 from astropy.coordinates import SkyCoord
 import astropy.coordinates as coord
-# from difflib import SequenceMatcher
 from modules.IO import readINI, readData, write2File
 from modules import makePlot, crossMatch
 
@@ -58,10 +56,6 @@ def frameGalactocentric(defFlag=True):
         # Sun's distance to galactic center from Camargo et al (2013)
         # (taken from Bica et al. 2006)a
         return coord.Galactocentric(galcen_distance=7.2 * u.kpc)
-
-
-# def similar(a, b):
-#     return 1. - SequenceMatcher(None, a, b).ratio()
 
 
 def dist2plane(allDatabases, crossMdata, gc_frame):
