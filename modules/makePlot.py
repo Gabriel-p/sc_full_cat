@@ -226,7 +226,7 @@ def plot(dpi, mode, crossMdata, gc_frame):
     plt.suptitle(r'$[d_{{GC}}={},\;\;z_{{\odot}}={}]$'.format(
         x_sun, z_sun), x=.52, y=.4, fontsize=14)
 
-    fig.tight_layout()
+    # fig.tight_layout()
     fig.savefig('output/crossMdata.png', dpi=dpi, bbox_inches='tight')
     plt.style.use('default')
 
