@@ -1,5 +1,6 @@
 
 # import warnings
+import re
 from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -89,6 +90,18 @@ def match(allDatabases, max_sep):
             txt = '{} matches found'.format(Nm)
         print("  {}: {}".format(txt, (crossMdata['N_m'] == Nm).sum()))
 
+    print("\nUnique clusters in DBS")
+    all_dbs = []
+    for i, cl in enumerate(crossMdata['name']):
+        if crossMdata['N_m'][i] == 1:
+            dbs = re.findall('\(.*?\)',cl)
+            dbs = [_.replace('(', '').replace(')', '') for _ in dbs]
+            all_dbs += dbs
+    all_dbs = np.array(all_dbs)
+    for db in DB_names:
+        msk = db == all_dbs
+        print("{}: {}".format(db, msk.sum()))
+
     return crossMdata
 
 
@@ -136,6 +149,7 @@ def updtCrossMData(
     """
     """
     name_m, ra_m, dec_m, dist_m, Nm_m = [], [], [], [], []
+
     # For each crossed-match element
     for j, i2 in enumerate(idx2_unq):
 
