@@ -15,7 +15,9 @@ Not used:
 * [Bossini et al 2019][5] - No new clusters?
 * [Camargo et al 2013][4] - 7 new clusters?
 * [Cantat-Gaudin et al 2018][6] - Only 2 clusters not present in CG20: BH 140, FSR_1758
-
+* [Guo et al 2018](https://ui.adsabs.harvard.edu/abs/2018RAA....18...32G/abstract): 24 (low quality)
+* [Borissova et al 2018](https://ui.adsabs.harvard.edu/abs/2018MNRAS.481.3902B/abstract): 120 (no CDS table)
+* [Sim et al 2019](https://ui.adsabs.harvard.edu/abs/2019JKAS...52..145S/abstract): 207 (no CDS table)
 
 
 ![Alt text](crossMdata.png?raw=true)

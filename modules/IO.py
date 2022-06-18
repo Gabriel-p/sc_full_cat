@@ -64,7 +64,15 @@ def readData():
                  'metallicity', True),
         'BICA19': ('Name', 'RAJ2000', 'DEJ2000', None, None, None, True),
         'LIUPANG': ('ID', '_RA.icrs', '_DE.icrs', 'plx', 'Age',
-                    None, False, 'plx')
+                    None, False, 'plx'),
+        'CASTRO20': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', None, None, False,
+                     'plx'),
+        'HAO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'age', None, False,
+                  'plx'),
+        'CASTRO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'logAge', None,
+                     False, 'plx'),
+        'HE22': ('Cluster', '_RA.icrs', '_DE.icrs', 'Plx', 'logAge', None,
+                 False, 'plx'),
     }
 
     files = os.listdir('input/')
@@ -138,7 +146,7 @@ def readDB(
 
     if db_name == 'BICA19':
         # Only use objects classified as open clusters.
-        msk = (db['Class1'] == 'OC') #| (db['Class1'] == 'OCC')
+        msk = (db['Class1'] == 'OC') | (db['Class1'] == 'OCC')
         db = db[msk]
 
     no_dist = np.isnan(db['dist_pc']).sum()
@@ -167,12 +175,12 @@ def write2File(crossMdata, dtBs_names):
     mask = bb['col0'].data
     crossMdata = crossMdata[mask]
 
-    col_order = ['name', 'lon_d', 'lat_d', 'N_m', 'dist_pc', 'x_pc', 'y_pc',
-                 'z_pc']
+    col_order = ['name', 'DBs', 'lon_d', 'lat_d', 'N_m', 'dist_pc', 'x_pc',
+                 'y_pc', 'z_pc']
     ascii.write(
         crossMdata[col_order], 'output/crossMdata.dat', format='fixed_width',
         formats={'N_m': '%5.0f',
                  'dist_pc': '%10.2f', 'lon_d': '%10.4f', 'lat_d': '%10.4f',
                  'x_pc': '%10.2f', 'y_pc': '%10.2f', 'z_pc': '%10.2f'},
         overwrite=True)
-    print("Cross-matched data written to file.")
+    print("\nCross-matched data written to file.")

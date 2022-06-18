@@ -1,5 +1,6 @@
 
 import os
+import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 import astropy.coordinates as coord
@@ -19,11 +20,46 @@ def main():
     # Cross-match all databases.
     if len(allDatabases.keys()) > 1:
         # raise ValueError("At least two databases must be present in 'input/")
-        print("Perform cross-match (max_sep={})".format(max_sep))
         crossMdata = crossMatch.match(allDatabases, max_sep)
     else:
         # TODO
         crossMdata = allDatabases
+
+    print("\nDatabases cross-matched, clusters found: {}".format(len(
+        crossMdata)))
+    for Nm in np.arange(crossMdata['N_m'].max(), 0, -1):
+        if Nm == 1:
+            txt = 'No cross-match found'
+        else:
+            txt = '{} matches found'.format(Nm)
+        print("  {}: {}".format(txt, (crossMdata['N_m'] == Nm).sum()))
+
+    # Split names from DBs
+    names, dbs = [], []
+    for i, cl in enumerate(crossMdata['name']):
+        matches = cl.split(';')
+        names_m, db_m = [], []
+        for match in matches:
+            name, db = match.split('(')
+            name = name.strip()
+            db = db.replace(')', '')
+            names_m.append(name)
+            db_m.append(db)
+        names.append(', '.join(names_m))
+        dbs.append(', '.join(db_m))
+    crossMdata['name'] = names
+    crossMdata['DBs'] = dbs
+
+    print("\nUnique clusters in DBS")
+    all_dbs = []
+    for i, cl in enumerate(crossMdata['name']):
+        if crossMdata['N_m'][i] == 1:
+            all_dbs.append(crossMdata['DBs'][i])
+    all_dbs = np.array(all_dbs)
+    DB_names = list(allDatabases.keys())
+    for db in DB_names:
+        msk = db == all_dbs
+        print("  {}: {}".format(db, msk.sum()))
 
     # Define Galactocentric frame
     gc_frame = frameGalactocentric(defFlag)

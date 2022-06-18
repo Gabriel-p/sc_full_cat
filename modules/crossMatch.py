@@ -1,6 +1,5 @@
 
 # import warnings
-import re
 from astropy.table import Table, Column
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -10,24 +9,19 @@ import numpy as np
 def match(allDatabases, max_sep):
     """
     """
+    print("\nPerform cross-match (max_sep={})".format(max_sep))
 
     # crossMdata = nameMatch(allDatabases)
     r_max_deg = (max_sep / 3600) * u.deg
 
-    # Initial Table
+    # Initial Table with dummy entry
     DB_names = list(allDatabases.keys())
-    crossMdata = allDatabases[DB_names[0]]
-    print("\nInitial database: {}".format(DB_names[0]))
-
-    new_names = []
-    for i, cl in enumerate(crossMdata['name']):
-        new_names.append(cl + ' (' + DB_names[0] + ')')
-    crossMdata['name'] = new_names
-
-    crossMdata['N_m'] = np.ones(len(crossMdata))
+    crossMdata = Table(
+        [['dummy'], [0], [0], [0], [0], [0]],
+        names=('name', 'ra', 'dec', 'N_m', 'coords', 'dist_pc'))
 
     # Process the remaining DBs
-    for DB_name in DB_names[1:]:
+    for DB_name in DB_names:
         print("  (processing {})".format(DB_name))
 
         data = allDatabases[DB_name]
@@ -43,6 +37,9 @@ def match(allDatabases, max_sep):
         # Store the indexes in 'c1' and c2'
         idx1_unq, idx2_unq, N_old = [], [], 0
         while True:
+        # for max_sep in np.linspace(60, 1800, 60):
+        #     r_max_deg = (max_sep / 3600) * u.deg
+        #     N_match = 0
 
             # Define catalogs to be matched.
             c1 = SkyCoord(ra=cm_ra, dec=cm_de)
@@ -52,8 +49,9 @@ def match(allDatabases, max_sep):
             # of the coordinates in 'c1'.
             idx2, d2d, _ = c1.match_to_catalog_sky(c2)
 
+            # If no new matches were found, break out
             N_new = (d2d < r_max_deg).sum()
-            if N_new <= 0 or N_old == N_new:
+            if N_new == 0 or N_old == N_new:
                 break
             N_old = N_new
 
@@ -65,12 +63,14 @@ def match(allDatabases, max_sep):
                         # This is an acceptable match
                         idx1_unq.append(c1_ids[i])
                         idx2_unq.append(c2_ids[idx2[i]])
+                        # N_match += 1
 
             # Remove the matched elements from the catalogs
             cm_ra[idx1_unq] = 0.
             cm_de[idx1_unq] = 0.
             da_ra[idx2_unq] = 0.
             da_de[idx2_unq] = 0.
+            # print("   ", r_max_deg, N_match)
 
         # Indexes for elements with no match found.
         idx1_ncm = [_ for _ in c1_ids if _ not in idx1_unq]
@@ -79,67 +79,12 @@ def match(allDatabases, max_sep):
         crossMdata = updtCrossMData(
             crossMdata, data, DB_name, idx1_unq, idx2_unq, idx1_ncm, idx2_ncm)
 
+    # Remove dummy entry
+    idx = list(crossMdata['name']).index('dummy')
+    crossMdata.remove_row(idx)
+
     # Store mean distance values
     crossMdata['dist_pc'] = crossMdata['dist_pc'] / crossMdata['N_m']
-
-    print("Databases cross-matched")
-    for Nm in np.arange(crossMdata['N_m'].max(), 0, -1):
-        if Nm == 1:
-            txt = 'No cross-match found'
-        else:
-            txt = '{} matches found'.format(Nm)
-        print("  {}: {}".format(txt, (crossMdata['N_m'] == Nm).sum()))
-
-    print("\nUnique clusters in DBS")
-    all_dbs = []
-    for i, cl in enumerate(crossMdata['name']):
-        if crossMdata['N_m'][i] == 1:
-            dbs = re.findall('\(.*?\)',cl)
-            dbs = [_.replace('(', '').replace(')', '') for _ in dbs]
-            all_dbs += dbs
-    all_dbs = np.array(all_dbs)
-    for db in DB_names:
-        msk = db == all_dbs
-        print("{}: {}".format(db, msk.sum()))
-
-    return crossMdata
-
-
-def nameMatch(allDatabases):
-    """
-    """
-
-    # Initial Table
-    DB_names = list(allDatabases.keys())
-    crossMdata = allDatabases[DB_names[0]]
-
-    idx_names = {}
-    for DB_name in DB_names[1:]:
-        data = allDatabases[DB_name]
-
-        cm_n = [_.replace(' ', '').replace('_', '').lower() for _ in crossMdata['name']]
-        da_n = [_.replace(' ', '').replace('_', '').lower() for _ in data['name']]
-
-        idx_cm, idx_da = [], []
-        for i, cl in enumerate(cm_n):
-            try:
-                j = da_n.index(cl)
-                idx_cm.append(i)
-                idx_da.append(j)
-            except ValueError:
-                pass
-
-        idx_names[DB_name] = (idx_cm, idx_da)
-
-    breakpoint()
-
-    new_names = []
-    for i, cl in enumerate(crossMdata['name']):
-        new_names.append(cl + ' (' + DB_names[0] + ')')
-    crossMdata['name'] = new_names
-
-    # for DB_name, idxs in idx_names.items():
-
 
     return crossMdata
 
@@ -156,7 +101,7 @@ def updtCrossMData(
         i1 = idx1_unq[j]
 
         # Store all names.
-        name_m.append(crossMdata['name'][i1] + ', ' + data['name'][i2]
+        name_m.append(crossMdata['name'][i1] + '; ' + data['name'][i2]
                       + ' (' + DB_name + ')')
         # Store averaged (ra, dec) values.
         ra_m.append(np.mean([crossMdata['ra'][i1], data['ra'][i2]]))
@@ -166,7 +111,7 @@ def updtCrossMData(
             crossMdata['dist_pc'][i1], data['dist_pc'][i2]]))
         Nm_m.append(crossMdata['N_m'][i1] + 1.)
 
-    name_nm, ra_nm, dec_nm, idx_nm, dist_nm, Nm_nm = [], [], [], [], [], []
+    name_nm, ra_nm, dec_nm, idx_nm, dist_nm, Nm_nm = [[] for _ in range(6)]
     for i1 in idx1_ncm:
         name_nm.append(crossMdata['name'][i1])
         ra_nm.append(crossMdata['ra'][i1])
@@ -195,3 +140,41 @@ def updtCrossMData(
     crossMdata = tempData
 
     return crossMdata
+
+
+# def nameMatch(allDatabases):
+#     """
+#     """
+
+#     # Initial Table
+#     DB_names = list(allDatabases.keys())
+#     crossMdata = allDatabases[DB_names[0]]
+
+#     idx_names = {}
+#     for DB_name in DB_names[1:]:
+#         data = allDatabases[DB_name]
+
+#         cm_n = [_.replace(' ', '').replace('_', '').lower() for _ in crossMdata['name']]
+#         da_n = [_.replace(' ', '').replace('_', '').lower() for _ in data['name']]
+
+#         idx_cm, idx_da = [], []
+#         for i, cl in enumerate(cm_n):
+#             try:
+#                 j = da_n.index(cl)
+#                 idx_cm.append(i)
+#                 idx_da.append(j)
+#             except ValueError:
+#                 pass
+
+#         idx_names[DB_name] = (idx_cm, idx_da)
+
+#     breakpoint()
+
+#     new_names = []
+#     for i, cl in enumerate(crossMdata['name']):
+#         new_names.append(cl + ' (' + DB_names[0] + ')')
+#     crossMdata['name'] = new_names
+
+#     # for DB_name, idxs in idx_names.items():
+
+#     return crossMdata
