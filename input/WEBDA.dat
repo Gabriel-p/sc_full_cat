@@ -1,4 +1,4 @@
-Cluster_name,RA_2000,Dec_2000,l,b,Dist,Mod,EB-V,Age,ST,Z,Diam,Fe/H,MRV,pm RA,pm Dec
+Cluster,RA_2000,Dec_2000,l,b,Dist,Mod,EB-V,Age,ST,Z,Diam,Fe/H,MRV,pm RA,pm Dec
 Alessi 1,00 53 27,+49 34 11,123.26,-13.3,800,9.82,0.1,8.85,,-184,54,,,6.51,-7.7
 Alessi 10,20 04 44,-10 28 47,31.64,-20.98,513,9.23,0.22,8.71,,-183.7,20.4,,,0.7,-7.92
 Alessi 11,20 21 24,+18 21 36,59.884,-10.34,,,,,,,24,,,-0.31,-9.64

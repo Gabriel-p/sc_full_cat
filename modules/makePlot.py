@@ -130,7 +130,7 @@ def plot(dpi, mode, crossMdata, gc_frame):
                     for _, (lon, lat) in enumerate(
                             zip(*[
                                 crossMdata['lon'][m], crossMdata['lat'][m]])):
-                        ax.annotate(crossMdata['name'][m][_].split(',')[0],
+                        ax.annotate(crossMdata['name'][m][_].split(';')[0],
                                     (lon, lat), xycoords='data',
                                     fontsize=fs[i - 4])
 
@@ -138,7 +138,7 @@ def plot(dpi, mode, crossMdata, gc_frame):
     plt.legend(cl_plots2[0], cl_plots2[1], loc=4, fontsize=12)
     plt.gca().add_artist(l1)
 
-    plt.style.use('seaborn-darkgrid')
+    # plt.style.use('seaborn-darkgrid')
 
     crossMdata['x_pc'].convert_unit_to('kpc')
     crossMdata['y_pc'].convert_unit_to('kpc')
@@ -175,9 +175,12 @@ def plot(dpi, mode, crossMdata, gc_frame):
                     xy_arm[0], xy_arm[1], c='purple', ls='--', label=sp_name)
             else:
                 plt.plot(xy_arm[0], xy_arm[1], ls='--', label=sp_name)
-    plt.xlim(max(xmin, -20.), min(xmax, 20.))
-    plt.ylim(max(ymin, -15.), min(ymax, 15.))
+    # plt.xlim(max(xmin, -20.), min(xmax, 20.))
+    # plt.ylim(max(ymin, -15.), min(ymax, 15.))
+    plt.xlim(-20, 5)
+    plt.ylim(-12.5, 12.5)
     plt.legend(fontsize=10)
+    # plt.grid(False)
     # colorbar
     cbax = plt.subplot(gs[3:4, 0:2])
     cb = Colorbar(

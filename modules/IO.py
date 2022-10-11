@@ -15,6 +15,21 @@ def readINI():
     in_params = configparser.ConfigParser()
     in_params.read('params.ini')
 
+    # Read info on DBs files
+    dbs = dict(in_params.items('DBs column names'))
+    dbs_dict = {}
+    for key, value in dbs.items():
+        temp = []
+        for elem in value.split():
+            if elem == 'None':
+                elem = None
+            if elem == 'False':
+                elem = False
+            if elem == 'True':
+                elem = True
+            temp.append(elem)
+        dbs_dict[key.upper()] = temp
+
     cmpars = in_params['Cross-match parameters']
     max_sep, defFlag = cmpars.getfloat('max_sep'), cmpars.getboolean('defFlag')
 
@@ -25,79 +40,72 @@ def readINI():
     if mode not in ('z_dist', 'd_dist'):
         raise ValueError("Unrecognized 'mode' value: {}".format(mode))
 
-    return max_sep, defFlag, plotFlag, dpi, mode
+    return dbs_dict, max_sep, defFlag, plotFlag, dpi, mode
 
 
-def readData():
+def readData(dbs_dict):
     """
     Read *all* the databases in 'input/ folder. Prepare so that all have the
     required columns with matching names.
-
-    WEBDA - https://webda.physics.muni.cz/name_selection.html
-    To download full list go to the link above and submit an empty query.
-
-    OPENCLUST - New Optically Visible Open Clusters and Candidates Catalog
-    https://heasarc.gsfc.nasa.gov/W3Browse/all/openclust.html
-    http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=B/ocl
-
-    MWSC - Milky Way Star Clusters Catalog
-    https://heasarc.gsfc.nasa.gov/W3Browse/all/mwsc.html
-    Manual edits: removed initial '|' chars.
-
     """
 
-    dbs_dict = {
-        # 'BOSSINI': (' ', 'Cluster', 'RA_ICRS', 'DE_ICRS', 'Dist_mod', 'logA',
-        #             'Fe/H', False, 'mod'),
-        # 'CAMARGO': ('|', 'Cluster', 'RAJ2000', 'DEJ2000', 'Dist', 'Age',
-        #             None, True, 'pc', True),
-        # 'CG2018': (',', 'Cluster', 'RAJ2000', 'DEJ2000', 'dmode',
-        #            None, None),
-        'CG20': ('Name', 'RA', 'DEC', 'D_pc', 'Age', None),
-        'WEBDA': ('Cluster_name', 'RA_2000', 'Dec_2000', 'Dist', 'Age',
-                  'Fe/H', True),
-        'DIAS21': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'Dist', 'logage',
-                   '[Fe/H]'),
-        'OPENCLUST': ('Cluster', 'RAJ2000', 'DEJ2000', 'Dist', 'Age',
-                      '[Fe/H]', True),
-        'MWSC': ('name', 'ra', 'dec', 'distance', 'log_age',
-                 'metallicity', True),
-        'BICA19': ('Name', 'RAJ2000', 'DEJ2000', None, None, None, True),
-        'LIUPANG': ('ID', '_RA.icrs', '_DE.icrs', 'plx', 'Age',
-                    None, False, 'plx'),
-        'CASTRO20': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', None, None, False,
-                     'plx'),
-        'HAO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'age', None, False,
-                  'plx'),
-        'CASTRO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'logAge', None,
-                     False, 'plx'),
-        'HE22': ('Cluster', '_RA.icrs', '_DE.icrs', 'Plx', 'logAge', None,
-                 False, 'plx'),
-    }
+    # dbs_dict = {
+    #     # 'BOSSINI': (' ', 'Cluster', 'RA_ICRS', 'DE_ICRS', 'Dist_mod', 'logA',
+    #     #             'Fe/H', False, 'mod'),
+    #     # 'CAMARGO': ('|', 'Cluster', 'RAJ2000', 'DEJ2000', 'Dist', 'Age',
+    #     #             None, True, 'pc', True),
+    #     # 'CG2018': (',', 'Cluster', 'RAJ2000', 'DEJ2000', 'dmode',
+    #     #            None, None),
+    #     'CG20': ('Name', 'RA', 'DEC', 'D_pc', 'Age', None),
+    #     'WEBDA': ('Cluster_name', 'RA_2000', 'Dec_2000', 'Dist', 'Age',
+    #               'Fe/H', True),
+    #     'DIAS21': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'Dist', 'logage',
+    #                '[Fe/H]'),
+    #     'OPENCLUST': ('Cluster', 'RAJ2000', 'DEJ2000', 'Dist', 'Age',
+    #                   '[Fe/H]', True),
+    #     'MWSC': ('name', 'ra', 'dec', 'distance', 'log_age',
+    #              'metallicity', True),
+    #     'BICA19': ('Name', 'RAJ2000', 'DEJ2000', None, None, None, True),
+    #     'LIUPANG': ('ID', '_RA.icrs', '_DE.icrs', 'plx', 'Age',
+    #                 None, False, 'plx'),
+    #     'CASTRO20': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', None, None, False,
+    #                  'plx'),
+    #     'HAO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'age', None, False,
+    #               'plx'),
+    #     'CASTRO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'logAge', None,
+    #                  False, 'plx'),
+    #     'HE22': ('Cluster', '_RA.icrs', '_DE.icrs', 'Plx', 'logAge', None,
+    #              False, 'plx'),
+    #     'HE22_2': ('CWNU_id', 'l', 'b', 'plx', 'logage', None,
+    #                False, 'mod'),
+    # }
 
     files = os.listdir('input/')
     files = [_.replace('.dat', '').upper() for _ in files]
 
     db_dict = {}
     for db_name in files:
-        # print(db_name)
-        db = readDB(db_name, *dbs_dict[db_name])
-        db_dict[db_name] = db
+        try:
+            db = readDB(db_name, *dbs_dict[db_name])
+            db_dict[db_name] = db
+        except KeyError:
+            pass
 
     return db_dict
 
 
 def readDB(
     db_name, c_name, c_ra, c_de, c_dist, c_age, c_feh,
-        ra_h=False, dist_type='pc', age_years=False, hs=0):
+        ra_h=False, xy_type='equat', dist_type='pc', age_years=False, hs=0):
     """
     Read a database and return a properly formatted table
     """
     db = ascii.read(
-        'input/' + db_name + '.dat', delimiter=',', header_start=hs)
+        'input/' + db_name + '.dat', delimiter=',', header_start=int(hs))
 
     db[c_name].name = 'name'
     db['name'] = db['name'].astype(str)
+
     if db_name == 'BICA19':
         for i, nm in enumerate(db['name']):
             db['name'][i] = nm.split(',')[0]
@@ -105,14 +113,23 @@ def readDB(
     db[c_ra].name = 'ra'
     db[c_de].name = 'dec'
     # Add units to (ra, dec)
-    if ra_h is True:
+    if xy_type == 'equat':
+        if ra_h is True:
+            eq = SkyCoord(
+                ra=db['ra'], dec=db['dec'], unit=(u.hour, u.deg), frame='icrs')
+        else:
+            eq = SkyCoord(
+                ra=db['ra'], dec=db['dec'], unit=(u.deg, u.deg), frame='icrs')
+    elif xy_type == 'galac':
         eq = SkyCoord(
-            ra=db['ra'], dec=db['dec'], unit=(u.hour, u.deg), frame='icrs')
-    else:
-        eq = SkyCoord(
-            ra=db['ra'], dec=db['dec'], unit=(u.deg, u.deg), frame='icrs')
-    db['ra'] = eq.ra
-    db['dec'] = eq.dec
+            frame="galactic", l=db['ra'], b=db['dec'], unit=(u.deg, u.deg))
+
+    if xy_type == 'equat':
+        db['ra'] = eq.ra
+        db['dec'] = eq.dec
+    elif xy_type == 'galac':
+        db['ra'] = eq.icrs.ra
+        db['dec'] = eq.icrs.dec
 
     if c_dist is not None:
         db[c_dist].name = 'dist_pc'
@@ -146,7 +163,7 @@ def readDB(
 
     if db_name == 'BICA19':
         # Only use objects classified as open clusters.
-        msk = (db['Class1'] == 'OC') | (db['Class1'] == 'OCC')
+        msk = (db['Class1'] == 'OC') #| (db['Class1'] == 'OCC')
         db = db[msk]
 
     no_dist = np.isnan(db['dist_pc']).sum()
@@ -155,7 +172,7 @@ def readDB(
     return db
 
 
-def write2File(crossMdata, dtBs_names):
+def write2File(crossMdata):
     """
     Write cross-matched data to 'crossMdata.dat' file.
     """
@@ -175,12 +192,12 @@ def write2File(crossMdata, dtBs_names):
     mask = bb['col0'].data
     crossMdata = crossMdata[mask]
 
-    col_order = ['name', 'DBs', 'lon_d', 'lat_d', 'N_m', 'dist_pc', 'x_pc',
-                 'y_pc', 'z_pc']
+    col_order = ['name', 'DBs', 'lon_d', 'lat_d', 'Nm', 'dist_pc', 'x_pc',
+                 'y_pc', 'z_pc', 'ra_all', 'dec_all', 'dist_all']
     ascii.write(
         crossMdata[col_order], 'output/crossMdata.dat', format='fixed_width',
-        formats={'N_m': '%5.0f',
-                 'dist_pc': '%10.2f', 'lon_d': '%10.4f', 'lat_d': '%10.4f',
+        formats={'Nm': '%5.0f',
+                 'dist_pc': '%10.0f', 'lon_d': '%10.4f', 'lat_d': '%10.4f',
                  'x_pc': '%10.2f', 'y_pc': '%10.2f', 'z_pc': '%10.2f'},
         overwrite=True)
     print("\nCross-matched data written to file.")
