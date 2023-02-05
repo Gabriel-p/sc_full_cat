@@ -156,7 +156,7 @@ def plot(dpi, mode, crossMdata, gc_frame):
         min(max(crossMdata['z_pc']), 2.5)
     plt1 = plt.scatter(
         crossMdata['x_pc'], crossMdata['y_pc'].data, alpha=.5,
-        c=crossMdata['z_pc'], cmap='viridis', vmin=vmin, vmax=vmax)
+        c=crossMdata['z_pc'], cmap='viridis', vmin=-5, vmax=5)
     plt.scatter(s_xys.x, s_xys.y, c='yellow', s=50, edgecolor='k')
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
@@ -177,53 +177,55 @@ def plot(dpi, mode, crossMdata, gc_frame):
                 plt.plot(xy_arm[0], xy_arm[1], ls='--', label=sp_name)
     # plt.xlim(max(xmin, -20.), min(xmax, 20.))
     # plt.ylim(max(ymin, -15.), min(ymax, 15.))
-    plt.xlim(-20, 5)
-    plt.ylim(-12.5, 12.5)
+    plt.xlim(-15, 5)
+    plt.ylim(-10, 10)
     plt.legend(fontsize=10)
     # plt.grid(False)
     # colorbar
     cbax = plt.subplot(gs[3:4, 0:2])
     cb = Colorbar(
         ax=cbax, mappable=plt1, orientation='horizontal', ticklocation='top')
-    cb.set_label(r"${:.1f} < z_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(crossMdata['z_pc']), max(crossMdata['z_pc'])), labelpad=10)
+    cb.set_label(r"${:.1f} < z_{{GC}}\, [kpc] < {:.1f}$".format(vmin, vmax),
+        # min(crossMdata['z_pc']), max(crossMdata['z_pc'])),
+    labelpad=10)
 
     ax = plt.subplot(gs[4:6, 2:4])
     plt.xlabel(r"$x_{GC}\, [kpc]$", fontsize=12)
     plt.ylabel(r"$z_{GC}\, [kpc]$", fontsize=12)
-    vmin, vmax = max(ymin, -15.), min(ymax, 15.)
+    vmin, vmax = -5, 5 # max(ymin, -15.), min(ymax, 15.)
     plt2 = plt.scatter(
         crossMdata['x_pc'], crossMdata['z_pc'], alpha=.5, c=crossMdata['y_pc'],
         cmap='viridis', vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.x, s_xys.z, c='yellow', s=50, edgecolor='k')
     plt.scatter(0., 0., c='k', marker='x', s=70)
-    plt.xlim(max(xmin, -20.), min(xmax, 20.))
+    plt.xlim(max(xmin, -15.), min(xmax, 5.))
     plt.ylim(max(min(crossMdata['z_pc']), -3.),
              min(max(crossMdata['z_pc']), 3.))
     # colorbar
     cbax = plt.subplot(gs[3:4, 2:4])
     cb = Colorbar(
         ax=cbax, mappable=plt2, orientation='horizontal', ticklocation='top')
-    cb.set_label(r"${:.1f} < y_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(crossMdata['y_pc']), max(crossMdata['y_pc'])), labelpad=10)
+    cb.set_label(r"${:.1f} < y_{{GC}}\, [kpc] < {:.1f}$".format(vmin, vmax),
+        # min(crossMdata['y_pc']), max(crossMdata['y_pc'])),
+    labelpad=10)
 
     ax = plt.subplot(gs[4:6, 4:6])
     plt.xlabel(r"$y_{GC}\, [kpc]$", fontsize=12)
     plt.ylabel(r"$z_{GC}\, [kpc]$", fontsize=12)
-    vmin, vmax = max(xmin, -20.), min(xmax, 20.)
+    vmin, vmax = -15, 0 #max(xmin, -20.), min(xmax, 20.)
     plt3 = plt.scatter(
         crossMdata['y_pc'], crossMdata['z_pc'], alpha=.5, c=crossMdata['x_pc'],
         cmap='viridis', vmin=vmin, vmax=vmax)
     plt.scatter(s_xys.y, s_xys.z, c='yellow', s=50, edgecolor='k')
-    plt.xlim(max(ymin, -15.), min(ymax, 15.))
+    plt.xlim(max(ymin, -10.), min(ymax, 10.))
     plt.ylim(max(min(crossMdata['z_pc']), -3.),
              min(max(crossMdata['z_pc']), 3.))
     # colorbar
     cbax = plt.subplot(gs[3:4, 4:6])
     cb = Colorbar(
         ax=cbax, mappable=plt3, orientation='horizontal', ticklocation='top')
-    cb.set_label(r"${:.1f} < x_{{GC}}\, [kpc] < {:.1f}$".format(
-        min(crossMdata['x_pc'].data), max(crossMdata['x_pc'].data)),
+    cb.set_label(r"${:.1f} < x_{{GC}}\, [kpc] < {:.1f}$".format(vmin, vmax),
+        # min(crossMdata['x_pc'].data), max(crossMdata['x_pc'].data)),
         labelpad=10)
 
     plt.suptitle(r'$[d_{{GC}}={},\;\;z_{{\odot}}={}]$'.format(
