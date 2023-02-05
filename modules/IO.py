@@ -49,37 +49,6 @@ def readData(dbs_dict):
     required columns with matching names.
     """
 
-    # dbs_dict = {
-    #     # 'BOSSINI': (' ', 'Cluster', 'RA_ICRS', 'DE_ICRS', 'Dist_mod', 'logA',
-    #     #             'Fe/H', False, 'mod'),
-    #     # 'CAMARGO': ('|', 'Cluster', 'RAJ2000', 'DEJ2000', 'Dist', 'Age',
-    #     #             None, True, 'pc', True),
-    #     # 'CG2018': (',', 'Cluster', 'RAJ2000', 'DEJ2000', 'dmode',
-    #     #            None, None),
-    #     'CG20': ('Name', 'RA', 'DEC', 'D_pc', 'Age', None),
-    #     'WEBDA': ('Cluster_name', 'RA_2000', 'Dec_2000', 'Dist', 'Age',
-    #               'Fe/H', True),
-    #     'DIAS21': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'Dist', 'logage',
-    #                '[Fe/H]'),
-    #     'OPENCLUST': ('Cluster', 'RAJ2000', 'DEJ2000', 'Dist', 'Age',
-    #                   '[Fe/H]', True),
-    #     'MWSC': ('name', 'ra', 'dec', 'distance', 'log_age',
-    #              'metallicity', True),
-    #     'BICA19': ('Name', 'RAJ2000', 'DEJ2000', None, None, None, True),
-    #     'LIUPANG': ('ID', '_RA.icrs', '_DE.icrs', 'plx', 'Age',
-    #                 None, False, 'plx'),
-    #     'CASTRO20': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', None, None, False,
-    #                  'plx'),
-    #     'HAO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'age', None, False,
-    #               'plx'),
-    #     'CASTRO22': ('Cluster', 'RA_ICRS', 'DE_ICRS', 'plx', 'logAge', None,
-    #                  False, 'plx'),
-    #     'HE22': ('Cluster', '_RA.icrs', '_DE.icrs', 'Plx', 'logAge', None,
-    #              False, 'plx'),
-    #     'HE22_2': ('CWNU_id', 'l', 'b', 'plx', 'logage', None,
-    #                False, 'mod'),
-    # }
-
     files = os.listdir('input/')
     files = [_.replace('.dat', '').upper() for _ in files]
 
@@ -95,8 +64,8 @@ def readData(dbs_dict):
 
 
 def readDB(
-    db_name, c_name, c_ra, c_de, c_dist, c_age, c_feh,
-        ra_h=False, xy_type='equat', dist_type='pc', age_years=False, hs=0):
+    db_name, c_name, c_ra, c_de, c_dist, c_age, c_feh, ra_h, xy_type,
+        dist_type, age_years, hs=0):
     """
     Read a database and return a properly formatted table
     """
@@ -105,10 +74,6 @@ def readDB(
 
     db[c_name].name = 'name'
     db['name'] = db['name'].astype(str)
-
-    if db_name == 'BICA19':
-        for i, nm in enumerate(db['name']):
-            db['name'][i] = nm.split(',')[0]
 
     db[c_ra].name = 'ra'
     db[c_de].name = 'dec'
@@ -137,6 +102,7 @@ def readDB(
         if dist_type == 'mod':
             db['dist_pc'] = 10**(.2 * (db['dist_pc'] + 5))
         elif dist_type == 'plx':
+            db['dist_pc'][db['dist_pc'] <= 0] = np.nan
             db['dist_pc'] = 1000 / db['dist_pc']
 
         try:
@@ -155,16 +121,6 @@ def readDB(
 
     if c_feh is not None:
         db[c_feh].name = 'fe_h'
-
-    if db_name == 'MWSC':
-        # Only use objects classified as open clusters.
-        msk = db['class'] == 'OPEN STAR CLUSTER'
-        db = db[msk]
-
-    if db_name == 'BICA19':
-        # Only use objects classified as open clusters.
-        msk = (db['Class1'] == 'OC') #| (db['Class1'] == 'OCC')
-        db = db[msk]
 
     no_dist = np.isnan(db['dist_pc']).sum()
     print("  {}, N_tot={}, N_nodist={}".format(db_name, len(db), no_dist))
