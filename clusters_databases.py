@@ -21,9 +21,13 @@ def main():
     if len(allDatabases.keys()) <= 1:
         raise ValueError("At least two databases must be present in 'input/")
 
+    N_tot = sum([len(v) for k, v in allDatabases.items()])
+    print(f"Total number of clusters: {N_tot}")
+
     # Generate cross-match for all the databases
     crossMdata = crossMatch.match(allDatabases, max_sep)
-    print(f"\nDatabases cross-matched, clusters found: {len(crossMdata)}")
+    # Use 'len()-1' to exclude dummy entry
+    print(f"\nDatabases cross-matched, clusters found: {len(crossMdata) - 1}")
 
     # Define Galactocentric frame
     gc_frame = frameGalactocentric(defFlag)
