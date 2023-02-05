@@ -2,15 +2,24 @@
 
 Currently using:
 
-* * [HE22_2; Unveiling hidden stellar aggregates in the Milky Way: 1656 new star clusters found in Gaia EDR3; He et al. (2022)](https://ui.adsabs.harvard.edu/abs/2022arXiv220908504H/abstract): 1656
+New clusters (4175)
+
+* [HE22_2; Unveiling hidden stellar aggregates in the Milky Way: 1656 new star clusters found in Gaia EDR3; He et al. (2022)](https://ui.adsabs.harvard.edu/abs/2022arXiv220908504H/abstract): 1656
 * [HE22; New Open-cluster Candidates Found in the Galactic Disk Using Gaia DR2/EDR3 Data, He et al. 2022](https://ui.adsabs.harvard.edu/abs/2022ApJS..260....8H/abstract): 541
 * [CASTRO22; Hunting for open clusters in Gaia EDR3: 628 new open clusters found with OCfinder, Castro-Ginard et al. 2022](https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.118C/abstract): 628
 * [HAO22; Newly detected open clusters in the Galactic disk using Gaia EDR3, Hao et al. 2022](https://ui.adsabs.harvard.edu/abs/2022A%26A...660A...4H/abstract): 704
+* [CASTRO20; Hunting for open clusters in Gaia DR2: 582 new open clusters .. Galactic disc, Castro-Ginard et al. 2020](https://ui.adsabs.harvard.edu/abs/2020A%26A...635A..45C/abstract): 582 (only 570 in CDS table?)
+* [LIUPANG; A Catalog of Newly Identified Star Clusters in Gaia DR2, Liu & Pang 2019][10]: 76
+
+Catalogued clusters
+
+* [HAO21; Evolution of the local spiral structure of the Milky Way revealed by open clusters, Hao et al. (2021)][https://ui.adsabs.harvard.edu/abs/2021A%26A...652A.102H/abstract]: 3794
 * [DIAS21; Updated parameters of 1743 open clusters based on Gaia DR2, Dias et al. 2021][7]: 1743
 * [CG20; Painting a portrait of the Galactic disc with its stellar clusters, Cantat-Gaudin et al. 2020][9] : 2017
-* [CASTRO20; Hunting for open clusters in Gaia DR2: 582 new open clusters .. Galactic disc, Castro-Ginard et al. 2020](https://ui.adsabs.harvard.edu/abs/2020A%26A...635A..45C/abstract): 582 (only 570 in CDS table?)
-* [BICA19; A Multi-band Catalog of 10978 Star Clusters ... in the Milky Way, Bica et al. 2019][8]: 3654
-* [LIUPANG; A Catalog of Newly Identified Star Clusters in Gaia DR2, Liu & Pang 2019][10]: 76
+* [BICA19; A Multi-band Catalog of 10978 Star Clusters ... in the Milky Way, Bica et al. 2019][8]: 2913 (OCs)
+
+
+Not used
 
 * [WEBDA][1] - Web version of the database known as BDA
 * [MWSC][2] - Milky Way Star Clusters Catalog
